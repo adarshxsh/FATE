@@ -1,25 +1,48 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from database import get_db, User
+import datetime
 
-router = APIRouter()
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-class AuthRequest(BaseModel):
-    google_id_token: str
-    device_mac: str
+class DeviceRegistration(BaseModel):
+    device_id: str
+    firebase_uid: str | None = None
 
 class AuthResponse(BaseModel):
-    jwt_token: str
-    user_email: str
+    status: str
+    user_id: int
+    message: str
 
-@router.post("/verify")
-async def authenticate_user(req: AuthRequest):
-    # MVP Mock: Assuming the token itself is the email for demonstration purposes
-    email = req.google_id_token
+@router.post("/register", response_model=AuthResponse)
+def register_device(data: DeviceRegistration, db: Session = Depends(get_db)):
+    # Check if device already registered
+    existing_user = db.query(User).filter(User.device_id == data.device_id).first()
     
-    if not email.endswith("@iitj.ac.in"):
-        raise HTTPException(status_code=403, detail="Only @iitj.ac.in accounts are permitted to join FATE.")
-        
+    if existing_user:
+        # Optionally update firebase_uid if it wasn't set
+        if data.firebase_uid and not existing_user.firebase_uid:
+            existing_user.firebase_uid = data.firebase_uid
+            db.commit()
+            
+        return AuthResponse(
+            status="success", 
+            user_id=existing_user.id, 
+            message="Device already registered."
+        )
+    
+    # Create new user
+    new_user = User(
+        device_id=data.device_id,
+        firebase_uid=data.firebase_uid
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
     return AuthResponse(
-        jwt_token=f"mock_jwt_for_{email}",
-        user_email=email
+        status="success", 
+        user_id=new_user.id, 
+        message="Device registered successfully."
     )
