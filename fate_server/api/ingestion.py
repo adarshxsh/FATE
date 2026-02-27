@@ -15,12 +15,14 @@ class ProximityData(BaseModel):
 
 class DigitalData(BaseModel):
     timestamp: float
-    foreground_app: str
+    app_category: str
+    usage_duration_seconds: float
 
 class NotificationData(BaseModel):
     timestamp: float
-    package: str
+    app_category: str
     content: str
+    response_time_seconds: float | None = None  # None implies it was ignored or dismissed
 
 @router.post("/location")
 async def ingest_location(data: LocationData):
@@ -33,7 +35,8 @@ async def ingest_proximity(data: ProximityData):
 
 @router.post("/digital")
 async def ingest_digital(data: DigitalData):
-    return {"status": "success", "recorded": data.timestamp}
+    # In a real app we'd fetch this score from core/scoring.py
+    return {"status": "success", "recorded": data.timestamp, "duration_recorded": data.usage_duration_seconds}
 
 @router.post("/notification")
 async def ingest_notification(data: NotificationData):
