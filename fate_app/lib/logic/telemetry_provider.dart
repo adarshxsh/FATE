@@ -20,23 +20,44 @@ class TelemetryProvider extends ChangeNotifier {
   String _currentContext = "Unknown";
   int _nearbyPeers = 0;
 
+  // Permission state
+  bool _notificationEnabled = false;
+  bool _usageEnabled = false;
+
   // Privacy Log tracking transmissions
   final List<String> _privacyLogs = [];
 
-  TelemetryProvider(this.prefs);
+  TelemetryProvider(this.prefs) {
+    _notificationEnabled = prefs.getBool('notification_enabled') ?? false;
+    _usageEnabled = prefs.getBool('usage_enabled') ?? false;
+  }
 
   double get fragmentationScore => _fragmentationScore;
   double get focusScore => _focusScore;
   String get currentContext => _currentContext;
   int get nearbyPeers => _nearbyPeers;
   List<String> get privacyLogs => _privacyLogs;
+  bool get notificationEnabled => _notificationEnabled;
+  bool get usageEnabled => _usageEnabled;
+
+  void setNotificationEnabled(bool value) {
+    _notificationEnabled = value;
+    prefs.setBool('notification_enabled', value);
+    notifyListeners();
+  }
+
+  void setUsageEnabled(bool value) {
+    _usageEnabled = value;
+    prefs.setBool('usage_enabled', value);
+    notifyListeners();
+  }
 
   void _addLog(String log) {
     final timeStr = DateTime.now()
         .toIso8601String()
         .split('T')[1]
         .substring(0, 8);
-    _privacyLogs.insert(0, "[\$timeStr] \$log");
+    _privacyLogs.insert(0, "[$timeStr] $log");
     if (_privacyLogs.length > 100) _privacyLogs.removeLast();
   }
 
@@ -60,21 +81,22 @@ class TelemetryProvider extends ChangeNotifier {
           _fragmentationScore = (_fragmentationScore + 0.05).clamp(0.0, 1.0);
           final pkg = data['package'] ?? 'unknown';
           final txt = data['text'] ?? '';
+          final title = data['title'] ?? '';
           ApiService.sendNotification(pkg, txt);
           _addLog(
-            "TXT_SENT | To: /notification | Pkg: \$pkg | Content length: \${txt.length}",
+            "TXT_SENT | To: /notification | Pkg: $pkg | Content: $title: $txt",
           );
           notifyListeners();
           break;
         case 'location_update':
           _currentContext =
-              "Geofenced: \${data['lat'].toStringAsFixed(2)}, \${data['lng'].toStringAsFixed(2)}";
+              "Geofenced: ${data['lat'].toStringAsFixed(2)}, ${data['lng'].toStringAsFixed(2)}";
           ApiService.sendTelemetry('location', {
             'lat': data['lat'],
             'lng': data['lng'],
           });
           _addLog(
-            "LOC_SENT | To: /location | Lat: \${data['lat'].toStringAsFixed(4)}, Lng: \${data['lng'].toStringAsFixed(4)}",
+            "LOC_SENT | To: /location | Lat: ${data['lat'].toStringAsFixed(4)}, Lng: ${data['lng'].toStringAsFixed(4)}",
           );
           notifyListeners();
           break;
@@ -85,7 +107,16 @@ class TelemetryProvider extends ChangeNotifier {
           else if (_nearbyPeers > 0)
             _nearbyPeers--;
           ApiService.sendTelemetry('proximity', {'nearby_peers': _nearbyPeers});
-          _addLog("PROX_SENT | To: /proximity | Nearby Peers: \$_nearbyPeers");
+          _addLog("PROX_SENT | To: /proximity | Nearby Peers: $_nearbyPeers");
+          notifyListeners();
+          break;
+        case 'app_usage':
+          final pkg = data['package'] ?? 'unknown';
+          ApiService.sendTelemetry('digital', {
+            'package': pkg,
+            'duration': 10000,
+          }); // 10 sec blocks
+          _addLog("USG_SENT | To: /digital | Foreground: $pkg");
           notifyListeners();
           break;
       }
