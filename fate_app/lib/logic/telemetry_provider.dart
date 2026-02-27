@@ -19,6 +19,7 @@ class TelemetryProvider extends ChangeNotifier {
   double _focusScore = 100.0;
   String _currentContext = "Unknown";
   int _nearbyPeers = 0;
+  final Map<String, String> _nearbyDevices = {};
 
   // Permission state
   bool _notificationEnabled = false;
@@ -36,6 +37,7 @@ class TelemetryProvider extends ChangeNotifier {
   double get focusScore => _focusScore;
   String get currentContext => _currentContext;
   int get nearbyPeers => _nearbyPeers;
+  List<String> get connectedPeers => _nearbyDevices.values.toList();
   List<String> get privacyLogs => _privacyLogs;
   bool get notificationEnabled => _notificationEnabled;
   bool get usageEnabled => _usageEnabled;
@@ -101,11 +103,28 @@ class TelemetryProvider extends ChangeNotifier {
           notifyListeners();
           break;
         case 'peer_found':
-        case 'peer_lost':
-          if (type == 'peer_found')
+          final endpointId = data['endpointId'] ?? 'unknown_id';
+          final peerName = data['name'] ?? 'Unknown';
+          if (!_nearbyDevices.containsKey(endpointId)) {
             _nearbyPeers++;
-          else if (_nearbyPeers > 0)
-            _nearbyPeers--;
+          }
+          _nearbyDevices[endpointId] = peerName;
+
+          ApiService.sendTelemetry('proximity', {
+            'nearby_peers': _nearbyPeers,
+            'peer_name': peerName,
+          });
+          _addLog(
+            "PROX_SENT | To: /proximity | Found Peer: $peerName | Count: $_nearbyPeers",
+          );
+          notifyListeners();
+          break;
+        case 'peer_lost':
+          final endpointId = data['endpointId'] ?? 'unknown_id';
+          if (_nearbyDevices.containsKey(endpointId)) {
+            _nearbyDevices.remove(endpointId);
+            if (_nearbyPeers > 0) _nearbyPeers--;
+          }
           ApiService.sendTelemetry('proximity', {'nearby_peers': _nearbyPeers});
           _addLog("PROX_SENT | To: /proximity | Nearby Peers: $_nearbyPeers");
           notifyListeners();
@@ -114,8 +133,8 @@ class TelemetryProvider extends ChangeNotifier {
           final pkg = data['package'] ?? 'unknown';
           ApiService.sendTelemetry('digital', {
             'package': pkg,
-            'duration': 10000,
-          }); // 10 sec blocks
+            'duration': 30000,
+          }); // 30 sec blocks
           _addLog("USG_SENT | To: /digital | Foreground: $pkg");
           notifyListeners();
           break;
@@ -138,6 +157,14 @@ class TelemetryProvider extends ChangeNotifier {
     _focusScore = focus;
     _currentContext = context;
     _nearbyPeers = peers;
+
+    // Simulate finding a peer for testing if none exist
+    if (peers > 0 && _nearbyDevices.isEmpty) {
+      _nearbyDevices['test_device_1'] = 'Galaxy M35 (Test)';
+    } else if (peers == 0) {
+      _nearbyDevices.clear();
+    }
+
     notifyListeners();
   }
 }

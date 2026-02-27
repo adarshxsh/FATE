@@ -13,7 +13,7 @@ class UsageTelemetryManager(private val context: Context) {
                 override fun run() {
                     if (isTracking) {
                         getForegroundApp()
-                        handler.postDelayed(this, 10000) // 10 seconds poll interval
+                        handler.postDelayed(this, 30000) // 30 seconds poll interval
                     }
                 }
             }

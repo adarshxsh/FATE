@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../logic/telemetry_provider.dart';
+import 'social_synergy_screen.dart';
 
 class AttentionDashboard extends StatelessWidget {
   const AttentionDashboard({super.key});
@@ -115,6 +116,7 @@ class AttentionDashboard extends StatelessWidget {
 
               // Proximity Card
               Card(
+                clipBehavior: Clip.antiAlias,
                 child: ListTile(
                   leading: const Icon(
                     Icons.people_alt_rounded,
@@ -126,6 +128,14 @@ class AttentionDashboard extends StatelessWidget {
                     '${telemetry.nearbyPeers} high-focus peers nearby',
                   ),
                   trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SocialSynergyScreen(),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
