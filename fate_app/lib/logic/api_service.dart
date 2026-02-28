@@ -3,10 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Production Server (Render Deployment)
-  static const String baseUrl = 'http://172.31.108.214:8000/api/ingest';
+  // Production Server (Render) — uncomment after pushing to git
+  // static const String baseUrl = 'https://fate-server-g1co.onrender.com/api/ingest';
+  // Development Server (Local Network)
+  static const String baseUrl = 'http://172.31.42.101:8000/api/ingest';
 
-  static Future<void> sendTelemetry(
+  static Future<Map<String, dynamic>?> sendTelemetry(
     String type,
     Map<String, dynamic> data,
   ) async {
@@ -23,12 +25,14 @@ class ApiService {
 
       if (response.statusCode == 200) {
         debugPrint("Successfully sent $type telemetry to server.");
+        return jsonDecode(response.body);
       } else {
         debugPrint("Failed to send $type: ${response.statusCode}");
       }
     } catch (e) {
       debugPrint("Error connecting to server: $e");
     }
+    return null;
   }
 
   // Notification with interaction data
@@ -60,6 +64,7 @@ class ApiService {
   static Future<int?> registerDevice(
     String deviceId, {
     String? firebaseUid,
+    String? username,
   }) async {
     // The auth endpoint is at /api/auth/register
     final authUrl = Uri.parse(
@@ -69,7 +74,11 @@ class ApiService {
       final response = await http.post(
         authUrl,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'device_id': deviceId, 'firebase_uid': firebaseUid}),
+        body: jsonEncode({
+          'device_id': deviceId,
+          'firebase_uid': firebaseUid,
+          'username': username,
+        }),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -175,5 +184,44 @@ class ApiService {
       debugPrint("Error updating settings: $e");
     }
     return false;
+  }
+
+  // ── Device Mapping (Social Synergy) ──
+  static Future<bool> updateDeviceMapping(
+    int userId,
+    String googleName,
+    String bluetoothId,
+  ) async {
+    final url = Uri.parse('$_serverBase/api/device_mapping');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'google_name': googleName,
+          'bluetooth_id': bluetoothId,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error updating device mapping: $e");
+    }
+    return false;
+  }
+
+  static Future<Map<String, dynamic>?> getDeviceMapping(
+    String bluetoothId,
+  ) async {
+    final url = Uri.parse('$_serverBase/api/device_mapping/$bluetoothId');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      debugPrint("Error fetching device mapping for $bluetoothId: $e");
+    }
+    return null;
   }
 }

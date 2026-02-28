@@ -15,9 +15,26 @@ class LocationTelemetryManager(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun startLocationUpdates() {
+        // ── Immediate fetch on app open ──
+        // Emit the last cached location right away so the UI shows a zone
+        // without waiting for the first 2-minute poll.
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                Log.d(
+                        "FATE_Telemetry",
+                        "Startup location: ${location.latitude}, ${location.longitude}"
+                )
+                TelemetryEventBus.emitEvent(
+                        "location_update",
+                        mapOf("lat" to location.latitude, "lng" to location.longitude)
+                )
+            }
+        }
+
+        // ── Periodic poll every 2 minutes ──
         val locationRequest =
-                LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
-                        .setMinUpdateIntervalMillis(5000)
+                LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 120000)
+                        .setMinUpdateIntervalMillis(120000)
                         .build()
 
         fusedLocationClient.requestLocationUpdates(
@@ -28,7 +45,7 @@ class LocationTelemetryManager(private val context: Context) {
                         if (location != null) {
                             Log.d(
                                     "FATE_Telemetry",
-                                    "Location update: \${location.latitude}, \${location.longitude}"
+                                    "Location update: ${location.latitude}, ${location.longitude}"
                             )
                             TelemetryEventBus.emitEvent(
                                     "location_update",

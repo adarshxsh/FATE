@@ -113,6 +113,24 @@ class ScoreHistoryService extends ChangeNotifier {
           'S_dig': currentSDig,
         };
 
+        // Check for drop before adding new snackshot
+        if (_todaySnapshots.isNotEmpty) {
+          final lastCas = (_todaySnapshots.last['CAS'] as num).toDouble();
+          final drop = lastCas - currentCAS;
+          if (drop >= 8.0) {
+            // Significant drop detected
+            _serverNotifications.insert(0, {
+              'type': 'warning',
+              'title': '📉 Focus Dropping!',
+              'body':
+                  'Your attention score fell by ${drop.toStringAsFixed(1)} points. Stay focused!',
+              'icon': 'trending_down',
+              'time': DateTime.now().toIso8601String(),
+              'cas': currentCAS,
+            });
+          }
+        }
+
         _todaySnapshots.add(snapshot);
 
         // Limit to max 10 effectively

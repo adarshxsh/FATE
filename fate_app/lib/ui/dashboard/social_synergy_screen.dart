@@ -9,6 +9,7 @@ class SocialSynergyScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final telemetry = context.watch<TelemetryProvider>();
     final devices = telemetry.nearbyDevicesMap;
+    final distances = telemetry.peerDistances;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Social Synergy')),
@@ -56,14 +57,14 @@ class SocialSynergyScreen extends StatelessWidget {
 
           // Info text
           Text(
-            'Discovered Devices',
+            'Discovered Users',
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           const Text(
-            'Toggle OFF to exclude a peer from affecting your attention score.',
+            'High-focus peers at 1-2m improve your attention score.',
             style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 12),
@@ -94,9 +95,19 @@ class SocialSynergyScreen extends StatelessWidget {
               final endpointId = entry.key;
               final peerName = entry.value;
               final isExcluded = telemetry.isFriend(endpointId);
+              final distance = distances[endpointId] ?? 5.0;
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: distance < 2.0
+                      ? BorderSide(
+                          color: Colors.purpleAccent.withOpacity(0.5),
+                          width: 1.5,
+                        )
+                      : BorderSide.none,
+                ),
                 child: SwitchListTile(
                   secondary: CircleAvatar(
                     backgroundColor: isExcluded
@@ -107,14 +118,37 @@ class SocialSynergyScreen extends StatelessWidget {
                       color: isExcluded ? Colors.grey : Colors.purpleAccent,
                     ),
                   ),
-                  title: Text(
-                    peerName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  title: Row(
+                    children: [
+                      Text(
+                        peerName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      if (distance < 2.0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purpleAccent.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'CLOSE',
+                            style: TextStyle(
+                              color: Colors.purpleAccent,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   subtitle: Text(
-                    isExcluded
-                        ? 'Excluded · No score impact'
-                        : 'Active · Affects your score',
+                    'Approx. ${distance.toStringAsFixed(1)}m · ${isExcluded ? "Excluded" : "Active"}',
                     style: TextStyle(
                       color: isExcluded ? Colors.grey : Colors.greenAccent,
                       fontSize: 12,
@@ -124,10 +158,8 @@ class SocialSynergyScreen extends StatelessWidget {
                   activeColor: Colors.greenAccent,
                   onChanged: (countThisPeer) {
                     if (countThisPeer) {
-                      // Turn ON → remove from exclusion list
                       telemetry.removeFriend(endpointId);
                     } else {
-                      // Turn OFF → add to exclusion list (friend)
                       telemetry.addFriend(endpointId);
                     }
                   },

@@ -26,6 +26,61 @@ class _AttentionDashboardState extends State<AttentionDashboard> {
     });
   }
 
+  // --- Location Data & Logic ---
+  final List<Map<String, dynamic>> _buildings = [
+    {"name": "LHC", "lat": 26.473123, "lng": 73.114013, "radius": 150.0},
+    {"name": "Shamiana", "lat": 26.4768079, "lng": 73.1142273, "radius": 150.0},
+    {"name": "New Mess", "lat": 26.4728026, "lng": 73.1173692, "radius": 150.0},
+    {
+      "name": "Akash Complex",
+      "lat": 26.4768229,
+      "lng": 73.1197027,
+      "radius": 150.0,
+    },
+    {"name": "KT", "lat": 26.4693031, "lng": 73.1141130, "radius": 150.0},
+    {"name": "FNG", "lat": 26.4662537, "lng": 73.1119672, "radius": 150.0},
+    {"name": "Hostel Area", "lat": 26.4730, "lng": 73.1100, "radius": 300.0},
+  ];
+
+  String _getClosestLocation(double? lat, double? lng) {
+    if (lat == null || lng == null) return "Unknown Area";
+
+    String nearestName = "Unknown Area";
+    double minDist = double.infinity;
+    double nearestRadius = 150.0;
+
+    // Quick inline Haversine
+    double toRad(double val) => val * 3.141592653589793 / 180;
+
+    for (var b in _buildings) {
+      final double bLat = b['lat'];
+      final double bLng = b['lng'];
+
+      final dLat = toRad(bLat - lat);
+      final dLon = toRad(bLng - lng);
+
+      // We'll just do a very simple equirectangular approximation since distances are so small
+      final x =
+          dLon *
+          3.141592653589793 /
+          180 *
+          6371000 *
+          0.89; // Cosine of lat ~0.89 for 26 deg
+      final y = dLat * 6371000;
+      final distSq = x * x + y * y;
+
+      if (distSq < minDist) {
+        minDist = distSq;
+        nearestName = b['name'];
+        nearestRadius = (b['radius'] as num).toDouble();
+      }
+    }
+
+    return minDist < (nearestRadius * nearestRadius)
+        ? nearestName
+        : "Off Campus";
+  }
+
   @override
   Widget build(BuildContext context) {
     final telemetry = context.watch<TelemetryProvider>();
@@ -190,7 +245,10 @@ class _AttentionDashboardState extends State<AttentionDashboard> {
                       child: _buildMetricCard(
                         context,
                         'Location',
-                        telemetry.currentContext,
+                        _getClosestLocation(
+                          telemetry.lastLat,
+                          telemetry.lastLng,
+                        ),
                         Icons.location_on_rounded,
                         Colors.blueAccent,
                       ),

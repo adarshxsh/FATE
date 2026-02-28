@@ -24,12 +24,12 @@ class LocationData(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 IIT_JODHPUR_ZONES = {
     # ── PRODUCTIVE ──
-    "LHC 1":                           {"lat": 26.473123, "lng": 73.114013, "radius_meters": 150, "is_productive": True},
+    "New Mess":                           {"lat": 26.473123, "lng": 73.114013, "radius_meters": 150, "is_productive": True},
     # ── NEUTRAL (hostel / off-campus) — no score impact ──
     "Hostel Area":                   {"lat": 26.4730, "lng": 73.1100, "radius_meters": 300, "is_productive": False, "score_neutral": True},
     # ── DISTRACTION ──
     "Shamiana":                      {"lat": 26.4768079, "lng": 73.1142273, "radius_meters": 150, "is_productive": False},
-    "New Mess":                      {"lat": 26.4728026, "lng": 73.1173692, "radius_meters": 150, "is_productive": False},
+    "LHC 1":                      {"lat": 26.4728026, "lng": 73.1173692, "radius_meters": 150, "is_productive": False},
     "Akash Complex":                 {"lat": 26.4768229, "lng": 73.1197027, "radius_meters": 150, "is_productive": False},
     "KT":                            {"lat": 26.4693031, "lng": 73.1141130, "radius_meters": 150, "is_productive": False},
     "FNG":                           {"lat": 26.4662537, "lng": 73.1119672, "radius_meters": 150, "is_productive": False},
