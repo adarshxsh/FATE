@@ -4,6 +4,8 @@ import '../../logic/telemetry_provider.dart';
 import '../../logic/score_history_service.dart';
 import 'social_synergy_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:installed_apps/installed_apps.dart';
+import 'package:installed_apps/app_info.dart';
 
 class AttentionDashboard extends StatefulWidget {
   const AttentionDashboard({super.key});
@@ -382,34 +384,9 @@ class _AttentionDashboardState extends State<AttentionDashboard> {
                         final durationStr = minutes > 0
                             ? '${minutes}m ${seconds}s'
                             : '${seconds}s';
-                        return Card(
-                          color: Colors.white10,
-                          child: ListTile(
-                            leading: const Icon(
-                              Icons.apps,
-                              color: Colors.blueAccent,
-                            ),
-                            title: Text(
-                              entry.key.split('.').last.toUpperCase(),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            subtitle: Text(
-                              entry.key,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.white54,
-                              ),
-                            ),
-                            trailing: Text(
-                              durationStr,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orangeAccent,
-                              ),
-                            ),
-                          ),
+                        return AppActivityTile(
+                          packageName: entry.key,
+                          durationStr: durationStr,
                         );
                       }),
               ],
@@ -538,6 +515,108 @@ class _AttentionDashboardState extends State<AttentionDashboard> {
               ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class AppActivityTile extends StatefulWidget {
+  final String packageName;
+  final String durationStr;
+
+  const AppActivityTile({
+    Key? key,
+    required this.packageName,
+    required this.durationStr,
+  }) : super(key: key);
+
+  @override
+  State<AppActivityTile> createState() => _AppActivityTileState();
+}
+
+class _AppActivityTileState extends State<AppActivityTile> {
+  AppInfo? _appInfo;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppInfo();
+  }
+
+  Future<void> _loadAppInfo() async {
+    try {
+      final info = await InstalledApps.getAppInfo(widget.packageName);
+      if (mounted) {
+        setState(() {
+          _appInfo = info;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      // Return a temporary placeholder or shrink while loading to not interrupt layout abruptly
+      return Card(
+        color: Colors.white10,
+        child: ListTile(
+          leading: const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+          title: Text(widget.packageName.split('.').last.toUpperCase()),
+          trailing: Text(widget.durationStr),
+        ),
+      );
+    }
+
+    // Ignore known system apps or apps explicitly marked as system
+    final knownSystemApps = [
+      'com.android.systemui',
+      'com.miui.home',
+      'com.sec.android.app.launcher',
+      'android',
+      'com.android.settings'
+    ];
+
+    if (_appInfo?.isSystemApp == true || knownSystemApps.contains(widget.packageName)) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      color: Colors.white10,
+      child: ListTile(
+        leading: _appInfo?.icon != null
+            ? Image.memory(_appInfo!.icon!, width: 40, height: 40)
+            : const Icon(Icons.apps, color: Colors.blueAccent),
+        title: Text(
+          _appInfo?.name ?? widget.packageName.split('.').last.toUpperCase(),
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        subtitle: Text(
+          widget.packageName,
+          style: const TextStyle(fontSize: 12, color: Colors.white54),
+        ),
+        trailing: Text(
+          widget.durationStr,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.orangeAccent,
+          ),
         ),
       ),
     );
