@@ -9,17 +9,17 @@ class AppColors {
   static const Color surfaceHighlight = Color(0xFF1E1F2E);
   static const Color gridLines = Color(0xFF2A2A35);
   
-  static const Color primary = Color(0xFF00FFCC);
-  static const Color secondary = Color(0xFFB388FF);
-  static const Color tertiary = Color(0xFFFF2D55);
+  static const Color primary = Color(0xFF3DE0D8);
+  static const Color secondary = Color(0xFF2A9E99);
+  static const Color tertiary = Color(0xFF1A615E);
   
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFF8E8E93);
   static const Color textMuted = Color(0xFF48484A);
 
-  static const Color success = Color(0xFF34C759);
-  static const Color warning = Color(0xFFFFCC00);
-  static const Color error = Color(0xFFFF3B30);
+  static const Color success = Color(0xFF3DE0D8);
+  static const Color warning = Color(0xFF81EFEA);
+  static const Color error = Color(0xFF1A615E);
   static const Color alert = error;
 
   static const Color shadowDark = Color(0x33000000); 
@@ -32,7 +32,7 @@ class AppColors {
   );
 
   static const LinearGradient alertGradient = LinearGradient(
-    colors: [tertiary, error],
+    colors: [secondary, tertiary],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
