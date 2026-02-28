@@ -51,3 +51,4 @@ def get_dashboard(user_id: int):
         }
     finally:
         db.close()
+4

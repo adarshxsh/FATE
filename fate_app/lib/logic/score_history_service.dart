@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
+import 'notification_service.dart';
 import 'package:http/http.dart' as http;
 
 /// Polls the server every 5 minutes for a fresh CAS snapshot.
@@ -15,8 +16,11 @@ import 'package:http/http.dart' as http;
 ///   "score_weekly"     → List of weekly averages (last 4 weeks)
 class ScoreHistoryService extends ChangeNotifier {
   final SharedPreferences prefs;
-  final int? userId;
+  int? userId;
   Timer? _pollTimer;
+
+  // Countdown timer state
+  int secondsUntilNextAnalysis = 300; // 5 minutes
 
   // In-memory state
   List<Map<String, dynamic>> _todaySnapshots = [];
@@ -32,8 +36,18 @@ class ScoreHistoryService extends ChangeNotifier {
   // Server-pushed insight notifications
   List<Map<String, dynamic>> _serverNotifications = [];
 
-  ScoreHistoryService({required this.prefs, required this.userId}) {
+  ScoreHistoryService({required this.prefs, this.userId}) {
     _loadFromDisk();
+  }
+
+  void updateUserId(int? newId) {
+    if (userId != newId) {
+      userId = newId;
+      notifyListeners();
+      if (userId != null && _pollTimer == null) {
+        startPolling();
+      }
+    }
   }
 
   List<Map<String, dynamic>> get todaySnapshots => _todaySnapshots;
@@ -41,16 +55,28 @@ class ScoreHistoryService extends ChangeNotifier {
   List<Map<String, dynamic>> get weeklyAverages => _weeklyAverages;
   List<Map<String, dynamic>> get serverNotifications => _serverNotifications;
 
-  /// Start the 5-minute polling loop
+  /// Start the 5-minute polling loop with a 1-second countdown tick
   void startPolling() {
     // Immediately fetch once
-    fetchAndStore();
+    fetchAndStore(isBackground: false);
 
-    // Then every 5 minutes
-    _pollTimer = Timer.periodic(const Duration(minutes: 5), (_) {
-      fetchAndStore();
+    // Then tick every 1 second
+    _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (secondsUntilNextAnalysis > 0) {
+        secondsUntilNextAnalysis--;
+        notifyListeners();
+      } else {
+        // Time to fetch!
+        fetchAndStore(isBackground: false);
+      }
     });
-    debugPrint("[ScoreHistory] Polling started (every 5 min)");
+    debugPrint("[ScoreHistory] Polling countdown started");
+  }
+
+  /// Manually trigger analysis right now
+  void triggerManualAnalysis() {
+    debugPrint("[ScoreHistory] Manual analysis triggered");
+    fetchAndStore(isBackground: false);
   }
 
   void stopPolling() {
@@ -58,9 +84,13 @@ class ScoreHistoryService extends ChangeNotifier {
     _pollTimer = null;
   }
 
-  /// Fetch fresh CAS from server, store locally
-  Future<void> fetchAndStore() async {
+  /// Fetch fresh CAS from server, store locally, and reset timer
+  Future<void> fetchAndStore({bool isBackground = true}) async {
     if (userId == null) return;
+
+    // Reset timer back to 5 minutes
+    secondsUntilNextAnalysis = 300;
+    notifyListeners();
 
     try {
       final serverBase = ApiService.baseUrl.replaceAll('/api/ingest', '');
@@ -110,6 +140,16 @@ class ScoreHistoryService extends ChangeNotifier {
 
         debugPrint(
           "[ScoreHistory] CAS=$currentCAS stored (${_todaySnapshots.length} snapshots, ${_serverNotifications.length} notifs)",
+        );
+
+        String? latestInsight;
+        if (_serverNotifications.isNotEmpty) {
+          latestInsight = _serverNotifications.first['body'];
+        }
+        await LocalNotificationService.initialize(); // Ensure initialized
+        await LocalNotificationService.showAnalysisNotification(
+          currentCAS,
+          insight: latestInsight,
         );
 
         _maybeGarbageCollect();

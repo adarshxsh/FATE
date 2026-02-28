@@ -3,10 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart' as google_auth;
 import 'api_service.dart';
 
 class TelemetryProvider extends ChangeNotifier {
   final SharedPreferences prefs;
+  final google_auth.GoogleSignIn _googleSignIn =
+      google_auth.GoogleSignIn.instance;
   static const MethodChannel _channel = MethodChannel(
     'com.ate.telemetry/channel',
   );
@@ -32,6 +35,9 @@ class TelemetryProvider extends ChangeNotifier {
   // App switch tracking
   String? _lastForegroundApp;
   DateTime? _lastAppSwitchTime;
+
+  // Local app usage accumulation (cleared after each analysis poll if desired)
+  final Map<String, int> _appUsageStats = {};
 
   // Notification log for UI display
   final List<Map<String, dynamic>> _notificationLog = [];
@@ -59,6 +65,7 @@ class TelemetryProvider extends ChangeNotifier {
   Set<String> get closeFriends => Set.unmodifiable(_closeFriends);
   List<String> get privacyLogs => _privacyLogs;
   List<Map<String, dynamic>> get notificationLog => _notificationLog;
+  Map<String, int> get appUsageStats => Map.unmodifiable(_appUsageStats);
   bool get notificationEnabled => _notificationEnabled;
   bool get usageEnabled => _usageEnabled;
 
@@ -112,16 +119,50 @@ class TelemetryProvider extends ChangeNotifier {
     if (_privacyLogs.length > 100) _privacyLogs.removeLast();
   }
 
-  Future<void> initialize() async {
-    if (_userId == null) {
-      // Create a pseudo-random device string for MVP
-      final String deviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
-      _userId = await ApiService.registerDevice(deviceId);
-      if (_userId != null) {
-        prefs.setInt('registered_user_id', _userId!);
-      }
-    }
+  void resetAppUsageStats() {
+    _appUsageStats.clear();
+    notifyListeners();
+  }
 
+  Future<void> initialize() async {
+    await _googleSignIn.initialize(
+      serverClientId:
+          '899997490172-8o2ue35fs7hkm2tsp82founi8k23rb53.apps.googleusercontent.com',
+    );
+
+    // If not authenticated, we should wait until user authenticates.
+    // So if _userId == null, we don't start native telemetry yet.
+    if (_userId != null) {
+      await _startAppEngine();
+    }
+  }
+
+  Future<bool> authenticateWithGoogle() async {
+    try {
+      final account = await _googleSignIn.authenticate();
+      final deviceId = 'device_${account.id}';
+      final firebaseUid = account.id; // Passing Google Auth ID as firebase UID
+
+      final registeredId = await ApiService.registerDevice(
+        deviceId,
+        firebaseUid: firebaseUid,
+      );
+
+      if (registeredId != null) {
+        _userId = registeredId;
+        await prefs.setInt('registered_user_id', _userId!);
+
+        await _startAppEngine();
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint("Error signing in with Google: $e");
+    }
+    return false;
+  }
+
+  Future<void> _startAppEngine() async {
     // Load close friends list from server
     await _loadFriends();
 
@@ -129,6 +170,13 @@ class TelemetryProvider extends ChangeNotifier {
       _startNativeTelemetry();
       _listenToEvents();
     }
+  }
+
+  Future<void> signOut() async {
+    await _googleSignIn.signOut();
+    _userId = null;
+    await prefs.remove('registered_user_id');
+    notifyListeners();
   }
 
   void _listenToEvents() {
@@ -268,6 +316,9 @@ class TelemetryProvider extends ChangeNotifier {
             _lastAppSwitchTime = DateTime.now();
           }
           _lastForegroundApp = pkg;
+
+          // Locally accumulate for the dashboard
+          _appUsageStats[pkg] = (_appUsageStats[pkg] ?? 0) + 10;
 
           ApiService.sendTelemetry('digital', {
             'user_id': _userId,

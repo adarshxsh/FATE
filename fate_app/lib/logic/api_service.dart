@@ -4,8 +4,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // Production Server (Render Deployment)
-  static const String baseUrl =
-      'https://fate-server-g1co.onrender.com/api/ingest';
+  static const String baseUrl = 'http://172.31.108.214:8000/api/ingest';
 
   static Future<void> sendTelemetry(
     String type,
@@ -58,7 +57,10 @@ class ApiService {
   }
 
   // Device registration to get the user_id
-  static Future<int?> registerDevice(String deviceId) async {
+  static Future<int?> registerDevice(
+    String deviceId, {
+    String? firebaseUid,
+  }) async {
     // The auth endpoint is at /api/auth/register
     final authUrl = Uri.parse(
       baseUrl.replaceAll('/api/ingest', '/api/auth/register'),
@@ -67,7 +69,7 @@ class ApiService {
       final response = await http.post(
         authUrl,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'device_id': deviceId, 'firebase_uid': null}),
+        body: jsonEncode({'device_id': deviceId, 'firebase_uid': firebaseUid}),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

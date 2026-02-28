@@ -1,0 +1,178 @@
+{
+  "project_info": {
+    "project_number": "899997490172",
+    "project_id": "lazyonedev",
+    "storage_bucket": "lazyonedev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:899997490172:android:4e0ca51188c950c188f079",
+        "android_client_info": {
+          "package_name": "com.devlup.lazyone"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "899997490172-vk9bv33bgfjt3e36f1gp3trkamtuaeoh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.devlup.lazyone",
+            "certificate_hash": "b6b9aa74b4c6639061f49bf91c16a1568eee7581"
+          }
+        },
+        {
+          "client_id": "899997490172-8o2ue35fs7hkm2tsp82founi8k23rb53.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNA9oj8tTCsc2AHY8GpR4aU8TW1cOUwBc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "899997490172-8o2ue35fs7hkm2tsp82founi8k23rb53.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "899997490172-ht7qsrga6gq9h116rnvmjsm156hpop65.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.lazyone"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:899997490172:android:ebdbe76b46c8183488f079",
+        "android_client_info": {
+          "package_name": "com.example.fate_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "899997490172-8o2ue35fs7hkm2tsp82founi8k23rb53.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNA9oj8tTCsc2AHY8GpR4aU8TW1cOUwBc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "899997490172-8o2ue35fs7hkm2tsp82founi8k23rb53.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "899997490172-ht7qsrga6gq9h116rnvmjsm156hpop65.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.lazyone"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:899997490172:android:62e13a287c21a66788f079",
+        "android_client_info": {
+          "package_name": "com.example.lazyone"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "899997490172-6578f31t4b34lkhfli6329v79mm0hm6v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.lazyone",
+            "certificate_hash": "b6b9aa74b4c6639061f49bf91c16a1568eee7581"
+          }
+        },
+        {
+          "client_id": "899997490172-8o2ue35fs7hkm2tsp82founi8k23rb53.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNA9oj8tTCsc2AHY8GpR4aU8TW1cOUwBc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "899997490172-8o2ue35fs7hkm2tsp82founi8k23rb53.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "899997490172-ht7qsrga6gq9h116rnvmjsm156hpop65.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.lazyone"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:899997490172:android:18e993093ce087d788f079",
+        "android_client_info": {
+          "package_name": "com.lazyone.basic"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "899997490172-r4lm8op4lednv74d8t66sakummi42k4m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lazyone.basic",
+            "certificate_hash": "b6b9aa74b4c6639061f49bf91c16a1568eee7581"
+          }
+        },
+        {
+          "client_id": "899997490172-8o2ue35fs7hkm2tsp82founi8k23rb53.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNA9oj8tTCsc2AHY8GpR4aU8TW1cOUwBc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "899997490172-8o2ue35fs7hkm2tsp82founi8k23rb53.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "899997490172-ht7qsrga6gq9h116rnvmjsm156hpop65.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.lazyone"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

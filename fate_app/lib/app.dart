@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
 import 'ui/main_screen.dart';
+import 'ui/auth/login_screen.dart';
+import 'logic/telemetry_provider.dart';
 
 class FateApp extends StatelessWidget {
   const FateApp({super.key});
@@ -30,7 +33,9 @@ class FateApp extends StatelessWidget {
           centerTitle: true,
         ),
       ),
-      home: const MainScreen(),
+      home: context.watch<TelemetryProvider>().userId == null
+          ? const LoginScreen()
+          : const MainScreen(),
     );
   }
 }
