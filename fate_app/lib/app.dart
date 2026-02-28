@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+
 import 'ui/main_screen.dart';
 import 'ui/auth/login_screen.dart';
+import 'ui/theme.dart';
 import 'logic/telemetry_provider.dart';
 
 class FateApp extends StatelessWidget {
@@ -16,21 +18,35 @@ class FateApp extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.dark,
         useMaterial3: true,
-        fontFamily: 'Roboto', // Replace with a more premium font if added
+        textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
         colorScheme: ColorScheme.dark(
-          primary: const Color(0xFF6C63FF),
-          secondary: const Color(0xFF03DAC6),
-          surface: const Color(0xFF1E1E1E),
-          error: const Color(0xFFCF6679),
+          primary: FateColors.primary,
+          secondary: FateColors.secondary,
+          surface: FateColors.bgCard,
+          error: const Color(0xFFFF5252),
           onPrimary: Colors.white,
           onSecondary: Colors.black,
           onSurface: Colors.white,
         ),
-        scaffoldBackgroundColor: const Color(0xFF0D0D12),
-        appBarTheme: const AppBarTheme(
+        scaffoldBackgroundColor: FateColors.bgDeep,
+        appBarTheme: AppBarTheme(
           backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
+          titleTextStyle: GoogleFonts.outfit(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+          iconTheme: const IconThemeData(color: Colors.white70),
+        ),
+        cardTheme: CardThemeData(
+          color: FateColors.bgCard,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          margin: EdgeInsets.zero,
         ),
       ),
       home: context.watch<TelemetryProvider>().userId == null
