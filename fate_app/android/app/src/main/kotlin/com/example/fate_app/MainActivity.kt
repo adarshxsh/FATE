@@ -48,7 +48,8 @@ class MainActivity : FlutterActivity() {
                 result ->
             when (call.method) {
                 "startTelemetry" -> {
-                    startNativeTelemetry()
+                    val userName = call.argument<String>("userName")
+                    startNativeTelemetry(userName)
                     result.success("Telemetry started.")
                 }
                 "requestUsagePermission" -> {
@@ -77,7 +78,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun startNativeTelemetry() {
+    private fun startNativeTelemetry(userName: String?) {
         try {
             usageManager.startTracking()
         } catch (e: Exception) {
@@ -91,7 +92,7 @@ class MainActivity : FlutterActivity() {
         }
 
         try {
-            proximityManager.startDiscovery()
+            proximityManager.startDiscovery(userName)
         } catch (e: Exception) {
             e.printStackTrace()
         }

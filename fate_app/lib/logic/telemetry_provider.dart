@@ -459,7 +459,8 @@ class TelemetryProvider extends ChangeNotifier {
 
   Future<void> _startNativeTelemetry() async {
     try {
-      final result = await _channel.invokeMethod('startTelemetry');
+      final name = _googleSignIn.currentUser?.displayName ?? '';
+      final result = await _channel.invokeMethod('startTelemetry', {'userName': name});
       debugPrint("Native telemetry status: $result");
     } on PlatformException catch (e) {
       debugPrint("Failed to start telemetry: '${e.message}'.");

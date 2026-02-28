@@ -11,8 +11,8 @@ import com.google.android.gms.nearby.connection.Strategy
 class ProximityTelemetryManager(private val context: Context) {
         private val SERVICE_ID = "com.example.fate_app.SERVICE_ID"
 
-        fun startDiscovery() {
-                startAdvertising() // Be discoverable while searching
+        fun startDiscovery(userName: String?) {
+                startAdvertising(userName) // Be discoverable while searching
                 val discoveryOptions =
                         DiscoveryOptions.Builder().setStrategy(Strategy.P2P_STAR).build()
 
@@ -51,15 +51,17 @@ class ProximityTelemetryManager(private val context: Context) {
                         .addOnFailureListener { Log.e("FATE_Telemetry", "Discovery failed", it) }
         }
 
-        private fun startAdvertising() {
+        private fun startAdvertising(userName: String?) {
                 val advertisingOptions =
                         com.google.android.gms.nearby.connection.AdvertisingOptions.Builder()
                                 .setStrategy(Strategy.P2P_STAR)
                                 .build()
+                
+                val NameStr = if (userName.isNullOrEmpty()) android.os.Build.MODEL else userName
 
                 Nearby.getConnectionsClient(context)
                         .startAdvertising(
-                                android.os.Build.MODEL,
+                                NameStr,
                                 SERVICE_ID,
                                 object :
                                         com.google.android.gms.nearby.connection.ConnectionLifecycleCallback() {
