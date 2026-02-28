@@ -15,11 +15,14 @@ class WeightsPayload(BaseModel):
 def get_settings(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        # Auto-create if not exists (helpful for local dev sync)
+        user = User(id=user_id, device_id=f"auto_{user_id}")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
         
     prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
     if not prefs:
-        # Return defaults if none explicitly set yet
         return {
             "status": "success",
             "weight_spatial": 0.3,
@@ -38,7 +41,10 @@ def get_settings(user_id: int, db: Session = Depends(get_db)):
 def update_settings(user_id: int, data: WeightsPayload, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        # Auto-create user if app thinks it exists (DB reset case)
+        user = User(id=user_id, device_id=f"auto_{user_id}")
+        db.add(user)
+        db.commit()
         
     # Validate sum is approx 1.0 (allow minor floating point variance like 0.99)
     total = data.weight_spatial + data.weight_social + data.weight_digital
