@@ -8,110 +8,133 @@ class SocialSynergyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final telemetry = context.watch<TelemetryProvider>();
-    final peers = telemetry.connectedPeers;
+    final devices = telemetry.nearbyDevicesMap;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Social Synergy')),
-      body: Padding(
+      body: ListView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Hero section
-            Card(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.people_alt_rounded,
-                      size: 64,
-                      color: Colors.purpleAccent,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '${telemetry.nearbyPeers}',
-                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+        children: [
+          // Hero Card — compact
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.people_alt_rounded,
+                    size: 48,
+                    color: Colors.purpleAccent,
+                  ),
+                  const SizedBox(width: 20),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${telemetry.nearbyPeers} Peers Nearby',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'High-Focus Peers Nearby',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleMedium?.copyWith(color: Colors.white70),
-                    ),
-                  ],
-                ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${telemetry.closeFriends.length} excluded from scoring',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 32),
+          ),
+          const SizedBox(height: 20),
 
-            // Connected Devices List
-            Text(
-              'Discovered Devices',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
+          // Info text
+          Text(
+            'Discovered Devices',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Toggle OFF to exclude a peer from affecting your attention score.',
+            style: TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
 
-            Expanded(
-              child: peers.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.bluetooth_searching,
-                            size: 48,
-                            color: Colors.white54,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Scanning for FATE users...',
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: peers.length,
-                      itemBuilder: (context, index) {
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.purpleAccent.withAlpha(
-                                50,
-                              ),
-                              child: const Icon(
-                                Icons.person,
-                                color: Colors.purpleAccent,
-                              ),
-                            ),
-                            title: Text(
-                              peers[index],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            subtitle: const Text('Status: Syncing Context'),
-                            trailing: const Icon(
-                              Icons.wifi_tethering,
-                              color: Colors.greenAccent,
-                            ),
-                          ),
-                        );
-                      },
+          // Peer List
+          if (devices.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.bluetooth_searching,
+                    size: 48,
+                    color: Colors.white54,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Scanning for FATE users...',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...devices.entries.map((entry) {
+              final endpointId = entry.key;
+              final peerName = entry.value;
+              final isExcluded = telemetry.isFriend(endpointId);
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: SwitchListTile(
+                  secondary: CircleAvatar(
+                    backgroundColor: isExcluded
+                        ? Colors.grey.withAlpha(40)
+                        : Colors.purpleAccent.withAlpha(50),
+                    child: Icon(
+                      isExcluded ? Icons.person_off : Icons.person,
+                      color: isExcluded ? Colors.grey : Colors.purpleAccent,
                     ),
-            ),
-          ],
-        ),
+                  ),
+                  title: Text(
+                    peerName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    isExcluded
+                        ? 'Excluded · No score impact'
+                        : 'Active · Affects your score',
+                    style: TextStyle(
+                      color: isExcluded ? Colors.grey : Colors.greenAccent,
+                      fontSize: 12,
+                    ),
+                  ),
+                  value: !isExcluded, // ON = counts, OFF = excluded
+                  activeColor: Colors.greenAccent,
+                  onChanged: (countThisPeer) {
+                    if (countThisPeer) {
+                      // Turn ON → remove from exclusion list
+                      telemetry.removeFriend(endpointId);
+                    } else {
+                      // Turn OFF → add to exclusion list (friend)
+                      telemetry.addFriend(endpointId);
+                    }
+                  },
+                ),
+              );
+            }),
+        ],
       ),
     );
   }

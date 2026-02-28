@@ -14,13 +14,30 @@ class LocationData(BaseModel):
     lat: float
     lng: float
 
-# Simple Geofencing Dictionary for IIT Jodhpur
-# Format: "Zone Name": {"lat": X, "lng": Y, "radius_meters": Z, "is_productive": True/False}
+# ═══════════════════════════════════════════════════════════════
+# IIT Jodhpur Permanent Campus Geofencing
+# Campus center: ~26.4762°N, 73.1133°E  (Karwad, NH-62, Nagaur Rd)
+#
+# HOW TO UPDATE: Open Google Maps → long-press a building → copy lat/lng
+# Radius is in meters. Keep generous (50-200m) to absorb GPS drift.
+# ═══════════════════════════════════════════════════════════════
 IIT_JODHPUR_ZONES = {
-    "Library": {"lat": 26.4715, "lng": 73.1118, "radius_meters": 100, "is_productive": True},
-    "Lecture Hall Complex": {"lat": 26.4728, "lng": 73.1165, "radius_meters": 150, "is_productive": True},
-    "Bermuda Triangle (Canteen)": {"lat": 26.4740, "lng": 73.1130, "radius_meters": 50, "is_productive": False},
-    "Hostel Area": {"lat": 26.4680, "lng": 73.1150, "radius_meters": 300, "is_productive": False}
+    # ── PRODUCTIVE ZONES ──
+    "Library (SR Ranganathan Hub)":  {"lat": 26.4770, "lng": 73.1140, "radius_meters": 80,  "is_productive": True},
+    "Lecture Hall Complex (LHC)":    {"lat": 26.4762, "lng": 73.1133, "radius_meters": 120, "is_productive": True},
+    "Department Block (Academic)":   {"lat": 26.4755, "lng": 73.1145, "radius_meters": 100, "is_productive": True},
+    "Central Workshop":              {"lat": 26.4748, "lng": 73.1125, "radius_meters": 60,  "is_productive": True},
+    "Computer Center":               {"lat": 26.4758, "lng": 73.1155, "radius_meters": 50,  "is_productive": True},
+
+    # ── NEUTRAL / RESIDENTIAL ZONES ──
+    "Boys Hostel Area":              {"lat": 26.4730, "lng": 73.1100, "radius_meters": 250, "is_productive": False},
+    "Girls Hostel Area":             {"lat": 26.4785, "lng": 73.1110, "radius_meters": 150, "is_productive": False},
+    "Faculty Residences":            {"lat": 26.4800, "lng": 73.1150, "radius_meters": 200, "is_productive": False},
+
+    # ── RECREATION / DISTRACTION ZONES ──
+    "Canteen / Mess Area":           {"lat": 26.4740, "lng": 73.1130, "radius_meters": 60,  "is_productive": False},
+    "Sports Complex":                {"lat": 26.4720, "lng": 73.1160, "radius_meters": 150, "is_productive": False},
+    "Shopping / ATM Area":           {"lat": 26.4745, "lng": 73.1115, "radius_meters": 40,  "is_productive": False},
 }
 
 def calculate_distance(lat1, lon1, lat2, lon2):

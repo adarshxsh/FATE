@@ -32,12 +32,13 @@ class ApiService {
     }
   }
 
-  // Overload for notifications specifically
+  // Notification with interaction data
   static Future<void> sendNotification(
     int userId,
     String package,
-    String content,
-  ) async {
+    String content, {
+    double? responseTimeSeconds,
+  }) async {
     final url = Uri.parse('$baseUrl/notification');
     try {
       await http.post(
@@ -48,6 +49,7 @@ class ApiService {
           'user_id': userId,
           'package': package,
           'content': content,
+          'response_time_seconds': responseTimeSeconds,
         }),
       );
     } catch (e) {
@@ -75,5 +77,62 @@ class ApiService {
       debugPrint("Error registering device: $e");
     }
     return null;
+  }
+
+  static String get _serverBase => baseUrl.replaceAll('/api/ingest', '');
+
+  // ── Close Friends API ──
+
+  static Future<bool> addFriend(int userId, String friendDeviceId) async {
+    final url = Uri.parse('$_serverBase/api/friends/add');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'friend_device_id': friendDeviceId,
+        }),
+      );
+      if (response.statusCode == 200) {
+        debugPrint("Friend added: $friendDeviceId");
+        return true;
+      }
+    } catch (e) {
+      debugPrint("Error adding friend: $e");
+    }
+    return false;
+  }
+
+  static Future<bool> removeFriend(int userId, String friendDeviceId) async {
+    final url = Uri.parse('$_serverBase/api/friends/remove');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'friend_device_id': friendDeviceId,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error removing friend: $e");
+    }
+    return false;
+  }
+
+  static Future<List<String>> getFriends(int userId) async {
+    final url = Uri.parse('$_serverBase/api/friends/list/$userId');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<String>.from(data['friends'] ?? []);
+      }
+    } catch (e) {
+      debugPrint("Error fetching friends: $e");
+    }
+    return [];
   }
 }

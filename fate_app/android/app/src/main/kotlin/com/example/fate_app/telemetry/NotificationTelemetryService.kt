@@ -13,13 +13,15 @@ class NotificationTelemetryService : NotificationListenerService() {
             val extras = it.notification.extras
             val title = extras.getString("android.title") ?: ""
             val text = extras.getCharSequence("android.text")?.toString() ?: ""
+            val postTime = it.postTime  // Epoch ms when notification arrived
 
             Log.d("FATE_Telemetry", "Posted: $packageName | $title | $text")
             
             TelemetryEventBus.emitEvent("notification_posted", mapOf(
                 "package" to packageName,
                 "title" to title,
-                "text" to text
+                "text" to text,
+                "post_time" to postTime
             ))
         }
     }

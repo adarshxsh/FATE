@@ -40,13 +40,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
-              _buildRadioPermissionSection(
+              _buildPermissionTile(
                 title: 'Notification Access',
                 subtitle: 'Required to read message context and distractions',
                 icon: Icons.notifications_active_rounded,
                 value: telemetry.notificationEnabled,
                 onChanged: (val) async {
-                  if (val == true) {
+                  if (val) {
                     await _channel.invokeMethod(
                       'requestNotificationPermission',
                     );
@@ -56,14 +56,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   }
                 },
               ),
-              const SizedBox(height: 24),
-              _buildRadioPermissionSection(
+              const SizedBox(height: 12),
+              _buildPermissionTile(
                 title: 'App Usage Access',
                 subtitle: 'Required to monitor foreground application usage',
                 icon: Icons.app_blocking_rounded,
                 value: telemetry.usageEnabled,
                 onChanged: (val) async {
-                  if (val == true) {
+                  if (val) {
                     await _channel.invokeMethod('requestUsagePermission');
                     telemetry.setUsageEnabled(true);
                   } else {
@@ -71,7 +71,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   }
                 },
               ),
-              const Divider(height: 48),
+              const Divider(height: 32),
               _buildPermissionTile(
                 title: 'Nearby Data Access',
                 subtitle: 'Required to discover social context & peers',
@@ -89,7 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   }
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _buildPermissionTile(
                 title: 'Location Context',
                 subtitle: 'Required to build geographical study habits',
@@ -109,69 +109,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildRadioPermissionSection({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required bool value,
-    required ValueChanged<bool?> onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: RadioListTile<bool>(
-                title: const Text('Granted'),
-                value: true,
-                groupValue: value,
-                onChanged: onChanged,
-                activeColor: Theme.of(context).colorScheme.secondary,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            Expanded(
-              child: RadioListTile<bool>(
-                title: const Text('Denied'),
-                value: false,
-                groupValue: value,
-                onChanged: onChanged,
-                activeColor: Colors.redAccent,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   Widget _buildPermissionTile({
     required String title,
     required String subtitle,
@@ -180,16 +117,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required ValueChanged<bool> onChanged,
   }) {
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SwitchListTile(
-        secondary: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        secondary: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(40),
+          child: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(subtitle, style: const TextStyle(color: Colors.white70)),
         value: value,
         onChanged: onChanged,
-        activeColor: Theme.of(context).colorScheme.secondary,
-        activeTrackColor: Theme.of(
-          context,
-        ).colorScheme.secondary.withAlpha(100),
+        activeThumbColor: Theme.of(context).colorScheme.primary,
+        activeTrackColor: Theme.of(context).colorScheme.primary.withAlpha(100),
       ),
     );
   }

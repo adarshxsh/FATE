@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'dashboard/attention_dashboard.dart';
-import 'data/data_privacy_screen.dart';
+import 'notification_log_screen.dart';
 import 'timeline_screen.dart';
+import 'data/data_privacy_screen.dart';
 import 'settings_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = [
     const AttentionDashboard(),
     const TimelineScreen(),
+    const NotificationLogScreen(),
     const DataPrivacyScreen(),
     const SettingsScreen(),
   ];
@@ -31,7 +33,7 @@ class _MainScreenState extends State<MainScreen> {
           color: Theme.of(context).colorScheme.surface,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(76), // ~0.3 opacity
+              color: Colors.black.withAlpha(76),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
@@ -49,14 +51,20 @@ class _MainScreenState extends State<MainScreen> {
           type: BottomNavigationBarType.fixed,
           selectedItemColor: Theme.of(context).colorScheme.primary,
           unselectedItemColor: Colors.grey,
+          selectedFontSize: 11,
+          unselectedFontSize: 10,
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.dashboard_rounded),
               label: 'Focus',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.timeline_rounded),
-              label: 'Timeline',
+              icon: Icon(Icons.analytics_rounded),
+              label: 'Analysis',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.notifications_rounded),
+              label: 'Notifs',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.admin_panel_settings_rounded),
