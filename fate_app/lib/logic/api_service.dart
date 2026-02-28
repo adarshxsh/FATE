@@ -137,4 +137,43 @@ class ApiService {
     }
     return [];
   }
+
+  // ── User Settings (Weights) ──
+
+  static Future<Map<String, dynamic>?> getSettings(int userId) async {
+    final url = Uri.parse('$_serverBase/api/settings/$userId');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      debugPrint("Error fetching settings: $e");
+    }
+    return null;
+  }
+
+  static Future<bool> updateSettings(
+    int userId,
+    double wLoc,
+    double wSoc,
+    double wDig,
+  ) async {
+    final url = Uri.parse('$_serverBase/api/settings/$userId');
+    try {
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'weight_spatial': wLoc,
+          'weight_social': wSoc,
+          'weight_digital': wDig,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error updating settings: $e");
+    }
+    return false;
+  }
 }

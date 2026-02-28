@@ -3,9 +3,28 @@ import 'package:provider/provider.dart';
 import '../../logic/telemetry_provider.dart';
 import '../../logic/score_history_service.dart';
 import 'social_synergy_screen.dart';
+import 'package:fl_chart/fl_chart.dart';
 
-class AttentionDashboard extends StatelessWidget {
+class AttentionDashboard extends StatefulWidget {
   const AttentionDashboard({super.key});
+
+  @override
+  State<AttentionDashboard> createState() => _AttentionDashboardState();
+}
+
+class _AttentionDashboardState extends State<AttentionDashboard> {
+  bool _showTotalDailyUsage = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch absolute total daily usage when dashboard opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<TelemetryProvider>().fetchTotalDailyUsage();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,6 +141,32 @@ class AttentionDashboard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (scoreService.todaySnapshots.length > 1) ...[
+                          const SizedBox(height: 32),
+                          const Text(
+                            'Trend (Last 10 Polls)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white54,
+                            ),
+                          ),
+                          if (_getDeltaText(
+                            scoreService.todaySnapshots,
+                          ).isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              _getDeltaText(scoreService.todaySnapshots),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.white70,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          _buildScoreHistoryGraph(scoreService.todaySnapshots),
+                        ],
                       ],
                     ),
                   ),
@@ -180,15 +225,55 @@ class AttentionDashboard extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // Recent App Activity Tracker
-                const Padding(
-                  padding: EdgeInsets.only(left: 4.0, bottom: 8.0),
-                  child: Text(
-                    'Recent App Activity',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                // App Activity Tracker (Toggleable)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'App Activity',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          const Text(
+                            'Session',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white54,
+                            ),
+                          ),
+                          Switch(
+                            value: _showTotalDailyUsage,
+                            onChanged: (val) {
+                              setState(() {
+                                _showTotalDailyUsage = val;
+                              });
+                              if (val) {
+                                context
+                                    .read<TelemetryProvider>()
+                                    .fetchTotalDailyUsage();
+                              }
+                            },
+                            activeColor: Colors.blueAccent,
+                          ),
+                          const Text(
+                            'Total',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                if (telemetry.appUsageStats.isEmpty)
+                if (!_showTotalDailyUsage && telemetry.appUsageStats.isEmpty)
                   const Card(
                     child: Padding(
                       padding: EdgeInsets.all(16.0),
@@ -198,44 +283,170 @@ class AttentionDashboard extends StatelessWidget {
                       ),
                     ),
                   )
-                else
-                  ...telemetry.appUsageStats.entries.map((entry) {
-                    final minutes = entry.value ~/ 60;
-                    final seconds = entry.value % 60;
-                    final durationStr = minutes > 0
-                        ? '${minutes}m ${seconds}s'
-                        : '${seconds}s';
-                    return Card(
-                      color: Colors.white10,
-                      child: ListTile(
-                        leading: const Icon(
-                          Icons.apps,
-                          color: Colors.blueAccent,
-                        ),
-                        title: Text(
-                          entry.key.split('.').last.toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                        ),
-                        subtitle: Text(
-                          entry.key,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white54,
+                else if (_showTotalDailyUsage &&
+                    telemetry.totalDailyUsage.isEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Unable to retrieve total daily OS usage. You must grant the App Usage permission.',
+                            style: TextStyle(color: Colors.white54),
+                            textAlign: TextAlign.center,
                           ),
-                        ),
-                        trailing: Text(
-                          durationStr,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orangeAccent,
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.settings),
+                            label: const Text('Grant Permission'),
+                            onPressed: () {
+                              telemetry.requestUsagePermission();
+                            },
                           ),
-                        ),
+                        ],
                       ),
-                    );
-                  }),
+                    ),
+                  )
+                else
+                  ...(_showTotalDailyUsage
+                          ? telemetry.totalDailyUsage.entries.toList()
+                          : telemetry.appUsageStats.entries.toList())
+                      .map((entry) {
+                        final minutes = entry.value ~/ 60;
+                        final seconds = entry.value % 60;
+                        final durationStr = minutes > 0
+                            ? '${minutes}m ${seconds}s'
+                            : '${seconds}s';
+                        return Card(
+                          color: Colors.white10,
+                          child: ListTile(
+                            leading: const Icon(
+                              Icons.apps,
+                              color: Colors.blueAccent,
+                            ),
+                            title: Text(
+                              entry.key.split('.').last.toUpperCase(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            subtitle: Text(
+                              entry.key,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white54,
+                              ),
+                            ),
+                            trailing: Text(
+                              durationStr,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orangeAccent,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  String _getDeltaText(List<Map<String, dynamic>> snapshots) {
+    if (snapshots.length < 2) return '';
+    // snapshots[0] is the newest, snapshots[1] is the previous one (they are ordered newest first in ScoreHistoryService normally if inserted at index 0, BUT WAIT: ScoreHistoryService appends via `add()`. So the NEWEST is at the END.)
+    // Let's verify: In ScoreHistoryService, `_todaySnapshots.add(snapshot)` -> newest is at length-1.
+    final current = snapshots.last;
+    final prev = snapshots[snapshots.length - 2];
+
+    final cas = (current['CAS'] as num).toDouble();
+    final prevCas = (prev['CAS'] as num).toDouble();
+    final diff = cas - prevCas;
+
+    if (diff.abs() < 0.1) return '';
+
+    final locDiff =
+        (current['S_loc'] as num).toDouble() -
+        (prev['S_loc'] as num).toDouble();
+    final socDiff =
+        (current['S_soc'] as num).toDouble() -
+        (prev['S_soc'] as num).toDouble();
+    final digDiff =
+        (current['S_dig'] as num).toDouble() -
+        (prev['S_dig'] as num).toDouble();
+
+    String mainFactor = 'Spatial Activity';
+    double maxDiff = locDiff.abs();
+    if (socDiff.abs() > maxDiff) {
+      mainFactor = 'Social Engagement';
+      maxDiff = socDiff.abs();
+    }
+    if (digDiff.abs() > maxDiff) {
+      mainFactor = 'Digital Distractions';
+    }
+
+    if (diff > 0) {
+      return '📈 Rose by ${diff.abs().toStringAsFixed(1)} (mainly due to better $mainFactor)';
+    } else {
+      return '📉 Dropped by ${diff.abs().toStringAsFixed(1)} (mainly due to $mainFactor)';
+    }
+  }
+
+  Widget _buildScoreHistoryGraph(List<Map<String, dynamic>> snapshots) {
+    if (snapshots.isEmpty) return const SizedBox.shrink();
+
+    // The snapshots list limit is max 10.
+    final spots = <FlSpot>[];
+    for (int i = 0; i < snapshots.length; i++) {
+      // x = chronological order (0 is oldest, length-1 is latest)
+      // y = CAS score
+      // We will just read the list. The list appends to the end, so order is oldest to newest.
+      final cas = (snapshots[i]['CAS'] as num).toDouble();
+      spots.add(FlSpot(i.toDouble(), cas));
+    }
+
+    return AspectRatio(
+      aspectRatio: 2.0,
+      child: LineChart(
+        LineChartData(
+          gridData: const FlGridData(show: false),
+          titlesData: const FlTitlesData(
+            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          borderData: FlBorderData(show: false),
+          minX: 0,
+          maxX: (snapshots.length - 1).toDouble() > 0
+              ? (snapshots.length - 1).toDouble()
+              : 1.0,
+          minY: 0,
+          maxY: 100,
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: Colors.greenAccent,
+              barWidth: 3,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: true),
+              belowBarData: BarAreaData(
+                show: true,
+                color: Colors.greenAccent.withOpacity(0.2),
+              ),
+            ),
+          ],
         ),
       ),
     );

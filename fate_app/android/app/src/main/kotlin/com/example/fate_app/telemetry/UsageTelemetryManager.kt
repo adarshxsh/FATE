@@ -58,4 +58,36 @@ class UsageTelemetryManager(private val context: Context) {
 
         return currentApp
     }
+
+    fun getDailyUsageStats(): Map<String, Long> {
+        val usageStatsManager =
+                context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+
+        val timeNow = System.currentTimeMillis()
+
+        // Get start of today (midnight)
+        val calendar = java.util.Calendar.getInstance()
+        calendar.timeInMillis = timeNow
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        calendar.set(java.util.Calendar.MINUTE, 0)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        val timeStartOfDay = calendar.timeInMillis
+
+        val stats = usageStatsManager.queryAndAggregateUsageStats(timeStartOfDay, timeNow)
+
+        val usageMap = mutableMapOf<String, Long>()
+        for ((packageName, usageStats) in stats) {
+            // totalTimeInForeground includes both explicit foreground and occasionally some visible
+            // background tasks depending on OS
+            val durationMs = usageStats.totalTimeInForeground
+            if (durationMs > 0) {
+                // Convert to seconds
+                usageMap[packageName] = durationMs / 1000
+            }
+        }
+
+        Log.d("FATE_Telemetry", "Fetched daily usage for ${usageMap.size} apps.")
+        return usageMap
+    }
 }

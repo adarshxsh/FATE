@@ -5,7 +5,7 @@ from database import engine, Base
 # Create DB Tables
 Base.metadata.create_all(bind=engine)
 
-from api import auth, location, digital, proximity, notifications, engagement, friends, analysis
+from api import auth, location, digital, proximity, notifications, engagement, friends, analysis, settings
 from core import scoring
 
 app = FastAPI(title="FATE Telemetry Server", description="Deterministic CAS Scoring Engine")
@@ -28,6 +28,7 @@ app.include_router(notifications.router)
 app.include_router(engagement.router)
 app.include_router(friends.router)
 app.include_router(analysis.router)
+app.include_router(settings.router)
 
 @app.get("/")
 def read_root():

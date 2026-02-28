@@ -169,9 +169,9 @@ def calculate_notification_score(
 # ──────────────────────────────────────────────
 # D. Final CAS Aggregation
 # ──────────────────────────────────────────────
-def compute_cas(s_loc: float, s_soc: float, s_dig: float) -> float:
+def compute_cas(s_loc: float, s_soc: float, s_dig: float, w_loc: float = 0.3, w_soc: float = 0.3, w_dig: float = 0.4) -> float:
     """
-    Raw CAS = 0.3 * S_loc + 0.3 * S_soc + 0.4 * S_dig
+    Raw CAS = (w_loc * s_loc) + (w_soc * s_soc) + (w_dig * s_dig)
     Scaled and clamped to [0, 100].
     
     The raw number can range widely:
@@ -180,7 +180,7 @@ def compute_cas(s_loc: float, s_soc: float, s_dig: float) -> float:
     
     We use a sigmoid-like scaling to map raw scores into [0, 100].
     """
-    raw = 0.3 * s_loc + 0.3 * s_soc + 0.4 * s_dig
+    raw = w_loc * s_loc + w_soc * s_soc + w_dig * s_dig
     
     # Linear scaling: map [-50, +50] raw range to [0, 100]
     # This can be tuned with real data
@@ -193,7 +193,7 @@ def compute_cas(s_loc: float, s_soc: float, s_dig: float) -> float:
 # Database-integrated daily computation
 # ──────────────────────────────────────────────
 from sqlalchemy.orm import Session
-from database import User, DailyScore, DigitalLog, ProximityLog, LocationLog, NotificationLog, EngagementLog, Friendship
+from database import User, DailyScore, DigitalLog, ProximityLog, LocationLog, NotificationLog, EngagementLog, Friendship, UserPreferences
 import datetime
 
 # ── Social Contagion Constants ──
@@ -276,7 +276,12 @@ def calculate_daily_cas(user_id: int, db: Session, date_str: str = None):
             )
 
     # ── D. Final CAS ──
-    cas = compute_cas(s_loc, s_soc, s_dig)
+    prefs = db.query(UserPreferences).filter(UserPreferences.user_id == user_id).first()
+    w_loc = prefs.weight_spatial if prefs else 0.3
+    w_soc = prefs.weight_social if prefs else 0.3
+    w_dig = prefs.weight_digital if prefs else 0.4
+
+    cas = compute_cas(s_loc, s_soc, s_dig, w_loc, w_soc, w_dig)
 
     # ── Fallback for New Users ──
     # If there is absolutely no telemetry yet, give a random high score to demo functionality

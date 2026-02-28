@@ -115,6 +115,13 @@ class ScoreHistoryService extends ChangeNotifier {
 
         _todaySnapshots.add(snapshot);
 
+        // Limit to max 10 effectively
+        if (_todaySnapshots.length > 10) {
+          _todaySnapshots = _todaySnapshots.sublist(
+            _todaySnapshots.length - 10,
+          );
+        }
+
         // Store server-pushed insight notifications
         final notifications = data['notifications'] as List<dynamic>?;
         if (notifications != null && notifications.isNotEmpty) {
@@ -187,9 +194,9 @@ class ScoreHistoryService extends ChangeNotifier {
 
     _dailyAverages.insert(0, avg);
 
-    // Keep only 7 daily records
-    if (_dailyAverages.length > 7) {
-      _dailyAverages = _dailyAverages.sublist(0, 7);
+    // Keep only 10 daily records
+    if (_dailyAverages.length > 10) {
+      _dailyAverages = _dailyAverages.sublist(0, 10);
     }
 
     // Clear today's snapshots for the new day
@@ -209,9 +216,9 @@ class ScoreHistoryService extends ChangeNotifier {
 
     _weeklyAverages.insert(0, weekAvg);
 
-    // Keep only 4 weekly records
-    if (_weeklyAverages.length > 4) {
-      _weeklyAverages = _weeklyAverages.sublist(0, 4);
+    // Keep only 10 weekly records
+    if (_weeklyAverages.length > 10) {
+      _weeklyAverages = _weeklyAverages.sublist(0, 10);
     }
 
     // Remove the compressed daily records

@@ -27,6 +27,17 @@ class User(Base):
     engagement_logs = relationship("EngagementLog", back_populates="user")
     friendships = relationship("Friendship", back_populates="user")
     daily_scores = relationship("DailyScore", back_populates="user")
+    preferences = relationship("UserPreferences", back_populates="user", uselist=False)
+
+class UserPreferences(Base):
+    __tablename__ = 'user_preferences'
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), unique=True)
+    weight_spatial = Column(Float, default=0.3)
+    weight_social = Column(Float, default=0.3)
+    weight_digital = Column(Float, default=0.4)
+    
+    user = relationship("User", back_populates="preferences")
 
 class Friendship(Base):
     """Close friends bypass the Social Contagion penalty."""

@@ -39,12 +39,20 @@ class TelemetryProvider extends ChangeNotifier {
   // Local app usage accumulation (cleared after each analysis poll if desired)
   final Map<String, int> _appUsageStats = {};
 
+  // Total daily usage pulled directly from OS UsageStatsManager
+  final Map<String, int> _totalDailyUsage = {};
+
   // Notification log for UI display
   final List<Map<String, dynamic>> _notificationLog = [];
 
-  // Permission state
   bool _notificationEnabled = false;
   bool _usageEnabled = false;
+
+  // Configuration weights from Backend
+  double _spatialWeight = 0.3;
+  double _socialWeight = 0.3;
+  double _digitalWeight = 0.4;
+  bool _isLoadingSettings = false;
 
   // Privacy Log tracking transmissions
   final List<String> _privacyLogs = [];
@@ -66,8 +74,14 @@ class TelemetryProvider extends ChangeNotifier {
   List<String> get privacyLogs => _privacyLogs;
   List<Map<String, dynamic>> get notificationLog => _notificationLog;
   Map<String, int> get appUsageStats => Map.unmodifiable(_appUsageStats);
+  Map<String, int> get totalDailyUsage => Map.unmodifiable(_totalDailyUsage);
   bool get notificationEnabled => _notificationEnabled;
   bool get usageEnabled => _usageEnabled;
+
+  double get spatialWeight => _spatialWeight;
+  double get socialWeight => _socialWeight;
+  double get digitalWeight => _digitalWeight;
+  bool get isLoadingSettings => _isLoadingSettings;
 
   bool isFriend(String deviceId) => _closeFriends.contains(deviceId);
 
@@ -108,6 +122,73 @@ class TelemetryProvider extends ChangeNotifier {
     _usageEnabled = value;
     prefs.setBool('usage_enabled', value);
     notifyListeners();
+  }
+
+  Future<void> fetchTotalDailyUsage() async {
+    if (!Platform.isAndroid || !_usageEnabled) return;
+
+    try {
+      final dynamic result = await _channel.invokeMethod('getDailyUsage');
+      if (result != null && result is Map) {
+        _totalDailyUsage.clear();
+        result.forEach((key, value) {
+          if (value is int) {
+            _totalDailyUsage[key.toString()] = value; // seconds
+          } else if (value is num) {
+            _totalDailyUsage[key.toString()] = value.toInt(); // seconds
+          }
+        });
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Failed to fetch absolute daily usage: $e");
+    }
+  }
+
+  Future<void> requestUsagePermission() async {
+    if (Platform.isAndroid) {
+      try {
+        await _channel.invokeMethod('requestUsagePermission');
+        setUsageEnabled(true);
+      } catch (e) {
+        debugPrint("Failed to request usage permission: $e");
+      }
+    }
+  }
+
+  // ── Settings API Interfacing ──
+
+  Future<void> fetchSettings() async {
+    if (_userId == null) return;
+    _isLoadingSettings = true;
+    notifyListeners();
+
+    final settings = await ApiService.getSettings(_userId!);
+    if (settings != null) {
+      _spatialWeight = (settings['weight_spatial'] as num).toDouble();
+      _socialWeight = (settings['weight_social'] as num).toDouble();
+      _digitalWeight = (settings['weight_digital'] as num).toDouble();
+    }
+
+    _isLoadingSettings = false;
+    notifyListeners();
+  }
+
+  Future<bool> saveSettings(double sLoc, double sSoc, double sDig) async {
+    if (_userId == null) return false;
+    _isLoadingSettings = true;
+    notifyListeners();
+
+    final success = await ApiService.updateSettings(_userId!, sLoc, sSoc, sDig);
+    if (success) {
+      _spatialWeight = sLoc;
+      _socialWeight = sSoc;
+      _digitalWeight = sDig;
+    }
+
+    _isLoadingSettings = false;
+    notifyListeners();
+    return success;
   }
 
   void _addLog(String log) {
@@ -165,6 +246,9 @@ class TelemetryProvider extends ChangeNotifier {
   Future<void> _startAppEngine() async {
     // Load close friends list from server
     await _loadFriends();
+
+    // Load custom weights
+    await fetchSettings();
 
     if (Platform.isAndroid) {
       _startNativeTelemetry();

@@ -59,6 +59,19 @@ class MainActivity : FlutterActivity() {
                     startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     result.success(null)
                 }
+                "getDailyUsage" -> {
+                    try {
+                        val stats = usageManager.getDailyUsageStats()
+                        result.success(stats)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        result.error(
+                                "USAGE_FAILED",
+                                "Failed to retrieve usage stats",
+                                e.localizedMessage
+                        )
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

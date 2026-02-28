@@ -233,16 +233,57 @@ class TimelineScreen extends StatelessWidget {
     List<Map<String, dynamic>> snapshots,
   ) {
     final display = snapshots.reversed.take(12).toList();
-    return Column(
-      children: display.map((s) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: display.length,
+      itemBuilder: (context, index) {
+        final s = display[index];
         final ts = DateTime.parse(s['ts']);
         final time =
             '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
         final cas = (s['CAS'] as num).toDouble();
 
+        // Calculate delta from previous snapshot (which is at index + 1 in this reversed list)
+        String deltaText = '';
+        if (index + 1 < display.length) {
+          final prev = display[index + 1];
+          final prevCas = (prev['CAS'] as num).toDouble();
+          final diff = cas - prevCas;
+
+          if (diff.abs() >= 0.1) {
+            final locDiff =
+                (s['S_loc'] as num).toDouble() -
+                (prev['S_loc'] as num).toDouble();
+            final socDiff =
+                (s['S_soc'] as num).toDouble() -
+                (prev['S_soc'] as num).toDouble();
+            final digDiff =
+                (s['S_dig'] as num).toDouble() -
+                (prev['S_dig'] as num).toDouble();
+
+            String mainFactor = 'Spatial';
+            double maxDiff = locDiff.abs();
+            if (socDiff.abs() > maxDiff) {
+              mainFactor = 'Social';
+              maxDiff = socDiff.abs();
+            }
+            if (digDiff.abs() > maxDiff) {
+              mainFactor = 'Digital';
+            }
+
+            if (diff > 0) {
+              deltaText = 'Rose largely due to $mainFactor';
+            } else {
+              deltaText = 'Dropped mainly due to $mainFactor';
+            }
+          }
+        }
+
         return Padding(
-          padding: const EdgeInsets.only(bottom: 4),
+          padding: const EdgeInsets.only(bottom: 12),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
                 width: 50,
@@ -252,20 +293,36 @@ class TimelineScreen extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: (cas / 100).clamp(0, 1),
-                    minHeight: 18,
-                    backgroundColor: Colors.white10,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      cas >= 70
-                          ? Colors.greenAccent
-                          : cas >= 40
-                          ? Colors.amberAccent
-                          : Colors.redAccent,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: (cas / 100).clamp(0, 1),
+                        minHeight: 8,
+                        backgroundColor: Colors.white10,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          cas >= 70
+                              ? Colors.greenAccent
+                              : cas >= 40
+                              ? Colors.amberAccent
+                              : Colors.redAccent,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (deltaText.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        deltaText,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white38,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -283,7 +340,7 @@ class TimelineScreen extends StatelessWidget {
             ],
           ),
         );
-      }).toList(),
+      },
     );
   }
 
@@ -292,10 +349,49 @@ class TimelineScreen extends StatelessWidget {
     BuildContext context,
     List<Map<String, dynamic>> dailies,
   ) {
-    return Column(
-      children: dailies.map((d) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: dailies.length,
+      itemBuilder: (context, index) {
+        final d = dailies[index];
         final date = d['date'] ?? '?';
         final cas = (d['CAS'] as num).toDouble();
+
+        String deltaText = '';
+        if (index + 1 < dailies.length) {
+          final prev = dailies[index + 1];
+          final prevCas = (prev['CAS'] as num).toDouble();
+          final diff = cas - prevCas;
+
+          if (diff.abs() >= 0.5) {
+            final locDiff =
+                (d['S_loc'] as num).toDouble() -
+                (prev['S_loc'] as num).toDouble();
+            final socDiff =
+                (d['S_soc'] as num).toDouble() -
+                (prev['S_soc'] as num).toDouble();
+            final digDiff =
+                (d['S_dig'] as num).toDouble() -
+                (prev['S_dig'] as num).toDouble();
+
+            String mainFactor = 'Spatial Activity';
+            double maxDiff = locDiff.abs();
+            if (socDiff.abs() > maxDiff) {
+              mainFactor = 'Social Engagement';
+              maxDiff = socDiff.abs();
+            }
+            if (digDiff.abs() > maxDiff) {
+              mainFactor = 'Digital Distractions';
+            }
+
+            if (diff > 0) {
+              deltaText = 'Rose mainly due to\nbetter $mainFactor';
+            } else {
+              deltaText = 'Dropped mainly due to\n$mainFactor';
+            }
+          }
+        }
 
         return Card(
           margin: const EdgeInsets.only(bottom: 6),
@@ -306,10 +402,17 @@ class TimelineScreen extends StatelessWidget {
               date,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+            subtitle: deltaText.isNotEmpty
+                ? Text(
+                    deltaText,
+                    style: const TextStyle(fontSize: 11, color: Colors.white54),
+                  )
+                : null,
             trailing: Text(
               cas.toStringAsFixed(1),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
+                fontSize: 14,
                 color: cas >= 70
                     ? Colors.greenAccent
                     : cas >= 40
@@ -319,7 +422,7 @@ class TimelineScreen extends StatelessWidget {
             ),
           ),
         );
-      }).toList(),
+      },
     );
   }
 
@@ -328,8 +431,12 @@ class TimelineScreen extends StatelessWidget {
     BuildContext context,
     List<Map<String, dynamic>> weeks,
   ) {
-    return Column(
-      children: weeks.map((w) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: weeks.length,
+      itemBuilder: (context, index) {
+        final w = weeks[index];
         final weekEnd = w['week_ending'] ?? '?';
         final cas = (w['CAS'] as num).toDouble();
 
@@ -346,6 +453,7 @@ class TimelineScreen extends StatelessWidget {
               cas.toStringAsFixed(1),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
+                fontSize: 14,
                 color: cas >= 70
                     ? Colors.greenAccent
                     : cas >= 40
@@ -355,7 +463,7 @@ class TimelineScreen extends StatelessWidget {
             ),
           ),
         );
-      }).toList(),
+      },
     );
   }
 }
