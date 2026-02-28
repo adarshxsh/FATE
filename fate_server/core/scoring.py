@@ -5,35 +5,44 @@ No AI. Pure algorithmic weights from telemetry data.
 CAS = 0.3 * S_loc + 0.3 * S_soc + 0.4 * S_dig   (scaled to [0, 100])
 """
 
-# ──────────────────────────────────────────────
-# A. Spatial Score (S_loc)
-# ──────────────────────────────────────────────
+# ── PRODUCTIVE ZONES ──
 ZONE_WEIGHTS = {
-    # Productive
-    "Library (SR Ranganathan Hub)":  +4.0,
-    "Lecture Hall Complex (LHC)":    +3.0,
-    "Department Block (Academic)":   +3.0,
-    "Central Workshop":              +2.5,
-    "Computer Center":               +3.5,
-    # Neutral / Residential
-    "Boys Hostel Area":              +1.0,
-    "Girls Hostel Area":             +1.0,
-    "Faculty Residences":            +0.5,
-    # Recreation / Distraction
-    "Canteen / Mess Area":           -2.0,
-    "Sports Complex":                -1.0,
-    "Shopping / ATM Area":           -1.5,
-    # Fallback
-    "Unknown Campus Area":            0.0,
+    "LHC":                           +4.0,  # Lecture Hall Complex — core academic
+
+    # Hostel / neutral — no score effect (spent there but doesn't count)
+    "Hostel Area":                    0.0,
+    "Unknown Campus Area":            0.0,  # Off-campus / undetected — no penalty
+
+    # ── DISTRACTION ZONES ──
+    "Shamiana":                      -2.0,
+    "New Mess":                      -2.0,
+    "Akash Complex":                 -1.5,
+    "KT":                            -2.0,
+    "FNG":                           -1.5,
 }
 
-def calculate_spatial_score(zone: str, hours_spent: float) -> float:
+# ──────────────────────────────────────────────
+# A. Spatial Score (S_loc)
+# Detection: GPS polled every 2 minutes.
+# On zone change, periods_count = number of 2-min intervals at previous zone.
+# Batched upload to server every 10 minutes.
+# Hostel / off-campus are always neutral (weight = 0.0).
+# ──────────────────────────────────────────────
+
+def calculate_spatial_score(zone: str, periods_count: int = 1) -> float:
     """
-    Multiplies time spent by a static zone weight.
-    Library 2h  -> +8.0
-    Canteen 1h  -> -2.0
+    Score based on time spent at a zone.
+    periods_count: how many 2-minute GPS polls were recorded in this zone.
+    hours_spent = periods_count * 2 / 60
+    
+    LHC @ 10 periods (20 min)  -> +4.0 * (20/60) = +1.33
+    KT  @ 15 periods (30 min)  -> -2.0 * (30/60) = -1.0
+    Hostel or off-campus        -> 0.0 always
     """
     weight = ZONE_WEIGHTS.get(zone, 0.0)
+    if weight == 0.0:
+        return 0.0  # Neutral zones never penalise or reward
+    hours_spent = (periods_count * 2) / 60.0
     return weight * hours_spent
 
 

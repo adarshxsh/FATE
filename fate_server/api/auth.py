@@ -9,6 +9,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 class DeviceRegistration(BaseModel):
     device_id: str
     firebase_uid: str | None = None
+    username: str | None = None
 
 class AuthResponse(BaseModel):
     status: str
@@ -35,7 +36,8 @@ def register_device(data: DeviceRegistration, db: Session = Depends(get_db)):
     # Create new user
     new_user = User(
         device_id=data.device_id,
-        firebase_uid=data.firebase_uid
+        firebase_uid=data.firebase_uid,
+        username=data.username
     )
     db.add(new_user)
     db.commit()
