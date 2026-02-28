@@ -20,6 +20,7 @@ class TelemetryProvider extends ChangeNotifier {
   String _currentContext = "Unknown";
   int _nearbyPeers = 0;
   final Map<String, String> _nearbyDevices = {};
+  int? _userId;
 
   // Permission state
   bool _notificationEnabled = false;
@@ -31,6 +32,7 @@ class TelemetryProvider extends ChangeNotifier {
   TelemetryProvider(this.prefs) {
     _notificationEnabled = prefs.getBool('notification_enabled') ?? false;
     _usageEnabled = prefs.getBool('usage_enabled') ?? false;
+    _userId = prefs.getInt('registered_user_id');
   }
 
   double get fragmentationScore => _fragmentationScore;
@@ -64,6 +66,15 @@ class TelemetryProvider extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    if (_userId == null) {
+      // Create a pseudo-random device string for MVP
+      final String deviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
+      _userId = await ApiService.registerDevice(deviceId);
+      if (_userId != null) {
+        prefs.setInt('registered_user_id', _userId!);
+      }
+    }
+
     if (Platform.isAndroid) {
       _startNativeTelemetry();
       _listenToEvents();
@@ -72,6 +83,8 @@ class TelemetryProvider extends ChangeNotifier {
 
   void _listenToEvents() {
     _eventChannel.receiveBroadcastStream().listen((dynamic event) {
+      if (_userId == null) return;
+
       final Map<dynamic, dynamic> map = event as Map<dynamic, dynamic>;
       final String type = map['type'] as String;
       final Map<dynamic, dynamic> data = map['data'] as Map<dynamic, dynamic>;
@@ -84,7 +97,7 @@ class TelemetryProvider extends ChangeNotifier {
           final pkg = data['package'] ?? 'unknown';
           final txt = data['text'] ?? '';
           final title = data['title'] ?? '';
-          ApiService.sendNotification(pkg, txt);
+          ApiService.sendNotification(_userId!, pkg, txt);
           _addLog(
             "TXT_SENT | To: /notification | Pkg: $pkg | Content: $title: $txt",
           );
@@ -94,6 +107,7 @@ class TelemetryProvider extends ChangeNotifier {
           _currentContext =
               "Geofenced: ${data['lat'].toStringAsFixed(2)}, ${data['lng'].toStringAsFixed(2)}";
           ApiService.sendTelemetry('location', {
+            'user_id': _userId,
             'lat': data['lat'],
             'lng': data['lng'],
           });
@@ -111,6 +125,7 @@ class TelemetryProvider extends ChangeNotifier {
           _nearbyDevices[endpointId] = peerName;
 
           ApiService.sendTelemetry('proximity', {
+            'user_id': _userId,
             'nearby_peers': _nearbyPeers,
             'peer_name': peerName,
           });
@@ -125,13 +140,17 @@ class TelemetryProvider extends ChangeNotifier {
             _nearbyDevices.remove(endpointId);
             if (_nearbyPeers > 0) _nearbyPeers--;
           }
-          ApiService.sendTelemetry('proximity', {'nearby_peers': _nearbyPeers});
+          ApiService.sendTelemetry('proximity', {
+            'user_id': _userId,
+            'nearby_peers': _nearbyPeers,
+          });
           _addLog("PROX_SENT | To: /proximity | Nearby Peers: $_nearbyPeers");
           notifyListeners();
           break;
         case 'app_usage':
           final pkg = data['package'] ?? 'unknown';
           ApiService.sendTelemetry('digital', {
+            'user_id': _userId,
             'package': pkg,
             'duration': 30000,
           }); // 30 sec blocks

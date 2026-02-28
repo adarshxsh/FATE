@@ -3,8 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Use 10.0.2.2 for Android Emulator to reach localhost on the host machine
-  static const String baseUrl = 'http://10.0.2.2:8000/api/ingest';
+  // Production Server (Render Deployment)
+  static const String baseUrl =
+      'https://fate-server-g1co.onrender.com/api/ingest';
 
   static Future<void> sendTelemetry(
     String type,
@@ -32,7 +33,11 @@ class ApiService {
   }
 
   // Overload for notifications specifically
-  static Future<void> sendNotification(String package, String content) async {
+  static Future<void> sendNotification(
+    int userId,
+    String package,
+    String content,
+  ) async {
     final url = Uri.parse('$baseUrl/notification');
     try {
       await http.post(
@@ -40,6 +45,7 @@ class ApiService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'timestamp': DateTime.now().millisecondsSinceEpoch / 1000,
+          'user_id': userId,
           'package': package,
           'content': content,
         }),
@@ -47,5 +53,27 @@ class ApiService {
     } catch (e) {
       debugPrint("Error sending notification telemetry: $e");
     }
+  }
+
+  // Device registration to get the user_id
+  static Future<int?> registerDevice(String deviceId) async {
+    // The auth endpoint is at /api/auth/register
+    final authUrl = Uri.parse(
+      baseUrl.replaceAll('/api/ingest', '/api/auth/register'),
+    );
+    try {
+      final response = await http.post(
+        authUrl,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'device_id': deviceId, 'firebase_uid': null}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['user_id'] as int?;
+      }
+    } catch (e) {
+      debugPrint("Error registering device: $e");
+    }
+    return null;
   }
 }
