@@ -18,6 +18,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     device_id = Column(String, unique=True, index=True)
     firebase_uid = Column(String, unique=True, nullable=True)
+    username = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
     location_logs = relationship("LocationLog", back_populates="user")
@@ -28,6 +29,16 @@ class User(Base):
     friendships = relationship("Friendship", back_populates="user")
     daily_scores = relationship("DailyScore", back_populates="user")
     preferences = relationship("UserPreferences", back_populates="user", uselist=False)
+    device_mapping = relationship("DeviceMapping", back_populates="user", uselist=False)
+
+class DeviceMapping(Base):
+    __tablename__ = 'device_mappings'
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), unique=True)
+    google_name = Column(String)
+    bluetooth_id = Column(String, unique=True, index=True)
+    
+    user = relationship("User", back_populates="device_mapping")
 
 class UserPreferences(Base):
     __tablename__ = 'user_preferences'
@@ -81,6 +92,7 @@ class ProximityLog(Base):
     timestamp = Column(Float)
     nearby_peers_count = Column(Integer)
     peer_name = Column(String, nullable=True)
+    distance = Column(Float, nullable=True)
     
     user = relationship("User", back_populates="proximity_logs")
 
