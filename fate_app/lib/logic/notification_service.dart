@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+import 'dart:ui';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class LocalNotificationService {
@@ -50,6 +52,42 @@ class LocalNotificationService {
       id: DateTime.now().millisecond,
       title: title,
       body: body,
+      notificationDetails: details,
+    );
+  }
+
+  /// Alert notification when an unknown device is detected nearby.
+  /// Uses alarm-level importance with sound + vibration.
+  static Future<void> showUnknownDeviceAlert(
+    String deviceName,
+    double distance,
+  ) async {
+    final AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'fate_attention_alert_channel',
+          'Attention Alerts',
+          channelDescription:
+              'Alerts when unknown devices may affect your attention score',
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: true,
+          enableVibration: true,
+          vibrationPattern: Int64List.fromList([0, 400, 200, 400]),
+          color: const Color(0xFFFF3B30),
+          colorized: true,
+          category: AndroidNotificationCategory.alarm,
+          styleInformation: const BigTextStyleInformation(''),
+        );
+
+    final NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await _notificationsPlugin.show(
+      id: 9000 + DateTime.now().millisecond,
+      title: '⚠️ Unknown Device Detected',
+      body:
+          '"$deviceName" is ${distance.toStringAsFixed(1)}m away. Unregistered devices near you decrease your attention score.',
       notificationDetails: details,
     );
   }

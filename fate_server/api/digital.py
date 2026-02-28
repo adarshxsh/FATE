@@ -141,43 +141,47 @@ class DigitalData(BaseModel):
 
 @router.post("/digital")
 def ingest_digital(data: DigitalData, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == data.user_id).first()
-    if not user:
-        return {"status": "error", "message": "User not found"}
+    try:
+        user = db.query(User).filter(User.id == data.user_id).first()
+        if not user:
+            return {"status": "error", "message": "User not found"}
 
-    profile = get_app_profile(data.package, data.play_store_category)
-    app_category = profile["cat"]
-    severity = profile["severity"]
-    usage_seconds = data.duration / 1000.0
-    is_distracting = severity > 0
+        profile = get_app_profile(data.package, data.play_store_category)
+        app_category = profile["cat"]
+        severity = profile["severity"]
+        usage_seconds = data.duration / 1000.0
+        is_distracting = severity > 0
 
-    # App switch penalty detection
-    switch_penalty = 0.0
-    if data.prev_package and data.switch_time_seconds is not None:
-        prev_profile = get_app_profile(data.prev_package)
-        prev_severity = prev_profile["severity"]
+        # App switch penalty detection
+        switch_penalty = 0.0
+        if data.prev_package and data.switch_time_seconds is not None:
+            prev_profile = get_app_profile(data.prev_package)
+            prev_severity = prev_profile["severity"]
+            
+            # Productive → Distracting switch within 30 seconds = impulse penalty
+            if prev_severity < 0 and severity > 0 and data.switch_time_seconds < 30:
+                switch_penalty = -2.0 * severity  # Scaled by how distracting the new app is
         
-        # Productive → Distracting switch within 30 seconds = impulse penalty
-        if prev_severity < 0 and severity > 0 and data.switch_time_seconds < 30:
-            switch_penalty = -2.0 * severity  # Scaled by how distracting the new app is
-    
-    log = DigitalLog(
-        user_id=data.user_id,
-        timestamp=data.timestamp,
-        package_name=data.package,
-        app_category=app_category,
-        duration_ms=data.duration,
-        usage_duration_seconds=usage_seconds,
-        is_distracting=is_distracting
-    )
-    
-    db.add(log)
-    db.commit()
-    
-    return {
-        "status": "success",
-        "app_category": app_category,
-        "severity": severity,
-        "is_distracting": is_distracting,
-        "switch_penalty": switch_penalty,
-    }
+        log = DigitalLog(
+            user_id=data.user_id,
+            timestamp=data.timestamp,
+            package_name=data.package,
+            app_category=app_category,
+            duration_ms=data.duration,
+            usage_duration_seconds=usage_seconds,
+            is_distracting=is_distracting
+        )
+        
+        db.add(log)
+        db.commit()
+        
+        return {
+            "status": "success",
+            "app_category": app_category,
+            "severity": severity,
+            "is_distracting": is_distracting,
+            "switch_penalty": switch_penalty,
+        }
+    except Exception as e:
+        print(f"ERROR in ingest_digital: {e}")
+        return {"status": "error", "message": str(e)}

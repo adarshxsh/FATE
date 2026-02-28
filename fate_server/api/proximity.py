@@ -11,6 +11,7 @@ class ProximityData(BaseModel):
     timestamp: float
     nearby_peers: int
     peer_name: str | None = None
+    distance: float | None = None
 
 @router.post("/proximity")
 def ingest_proximity(data: ProximityData, db: Session = Depends(get_db)):
@@ -23,7 +24,8 @@ def ingest_proximity(data: ProximityData, db: Session = Depends(get_db)):
         user_id=data.user_id,
         timestamp=data.timestamp,
         nearby_peers_count=data.nearby_peers,
-        peer_name=data.peer_name
+        peer_name=data.peer_name,
+        distance=data.distance
     )
     
     db.add(log)

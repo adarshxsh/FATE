@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../logic/score_history_service.dart';
+import 'theme.dart';
 
 class TimelineScreen extends StatelessWidget {
   const TimelineScreen({super.key});
@@ -10,73 +12,115 @@ class TimelineScreen extends StatelessWidget {
     final history = context.watch<ScoreHistoryService>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Analysis'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Fetch Now',
-            onPressed: () {
-              history.fetchAndStore();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fetching fresh analysis...'),
-                  duration: Duration(seconds: 1),
+      backgroundColor: FateColors.bgDeep,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 100,
+            floating: true,
+            pinned: false,
+            backgroundColor: Colors.transparent,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+              title: Text(
+                'Analysis',
+                style: GoogleFonts.outfit(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
                 ),
-              );
-            },
+              ),
+            ),
+            actions: [
+              Container(
+                margin: const EdgeInsets.only(right: 16),
+                decoration: BoxDecoration(
+                  color: FateColors.bgCard.withAlpha(200),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withAlpha(10)),
+                ),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.refresh_rounded,
+                    color: FateColors.primary,
+                  ),
+                  tooltip: 'Fetch Now',
+                  onPressed: () {
+                    history.fetchAndStore();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Fetching fresh analysis...',
+                          style: GoogleFonts.outfit(),
+                        ),
+                        backgroundColor: FateColors.bgCard,
+                        duration: const Duration(seconds: 1),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // ── Live CAS Score Card ──
-          _buildLiveScoreCard(context, history),
-          const SizedBox(height: 16),
 
-          // ── Sub-Score Breakdown ──
-          _buildSubScoreRow(context, history),
-          const SizedBox(height: 24),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // ── Live CAS Score Card ──
+                _buildLiveScoreCard(context, history),
+                const SizedBox(height: 16),
 
-          // ── Today's Snapshots ──
-          _buildSectionTitle(
-            context,
-            'Today\'s Snapshots',
-            '${history.todaySnapshots.length} readings',
+                // ── Sub-Score Breakdown ──
+                _buildSubScoreRow(context, history),
+                const SizedBox(height: 28),
+
+                // ── Today's Snapshots ──
+                SectionHeader(
+                  title: "Today's Snapshots",
+                  badge: '${history.todaySnapshots.length} readings',
+                  icon: Icons.timeline_rounded,
+                ),
+                if (history.todaySnapshots.isEmpty)
+                  _buildEmptyState(
+                    'No snapshots yet. First one arrives in ~5 min.',
+                  )
+                else
+                  _buildSnapshotList(context, history.todaySnapshots),
+                const SizedBox(height: 28),
+
+                // ── Daily Averages ──
+                SectionHeader(
+                  title: 'Daily Averages',
+                  badge: '${history.dailyAverages.length} days',
+                  icon: Icons.calendar_today_rounded,
+                ),
+                if (history.dailyAverages.isEmpty)
+                  _buildEmptyState('Daily averages appear after a full day.')
+                else
+                  _buildDailyList(context, history.dailyAverages),
+                const SizedBox(height: 28),
+
+                // ── Weekly Averages ──
+                SectionHeader(
+                  title: 'Weekly Averages',
+                  badge: '${history.weeklyAverages.length} weeks',
+                  icon: Icons.date_range_rounded,
+                ),
+                if (history.weeklyAverages.isEmpty)
+                  _buildEmptyState(
+                    'Weekly averages appear after 7 daily records.',
+                  )
+                else
+                  _buildWeeklyList(context, history.weeklyAverages),
+                const SizedBox(height: 40),
+              ]),
+            ),
           ),
-          const SizedBox(height: 8),
-          if (history.todaySnapshots.isEmpty)
-            _buildEmptyState('No snapshots yet. First one arrives in ~5 min.')
-          else
-            _buildSnapshotList(context, history.todaySnapshots),
-          const SizedBox(height: 24),
-
-          // ── Daily Averages ──
-          _buildSectionTitle(
-            context,
-            'Daily Averages',
-            '${history.dailyAverages.length} days',
-          ),
-          const SizedBox(height: 8),
-          if (history.dailyAverages.isEmpty)
-            _buildEmptyState('Daily averages appear after a full day.')
-          else
-            _buildDailyList(context, history.dailyAverages),
-          const SizedBox(height: 24),
-
-          // ── Weekly Averages ──
-          _buildSectionTitle(
-            context,
-            'Weekly Averages',
-            '${history.weeklyAverages.length} weeks',
-          ),
-          const SizedBox(height: 8),
-          if (history.weeklyAverages.isEmpty)
-            _buildEmptyState('Weekly averages appear after 7 daily records.')
-          else
-            _buildWeeklyList(context, history.weeklyAverages),
-          const SizedBox(height: 32),
         ],
       ),
     );
@@ -84,51 +128,69 @@ class TimelineScreen extends StatelessWidget {
 
   // ── Live Score Card ──
   Widget _buildLiveScoreCard(BuildContext context, ScoreHistoryService h) {
-    final casColor = h.currentCAS >= 70
-        ? Colors.greenAccent
-        : h.currentCAS >= 40
-        ? Colors.amberAccent
-        : Colors.redAccent;
+    final casColor = FateColors.scoreColor(h.currentCAS);
+    String statusLabel;
+    if (h.currentCAS >= 70) {
+      statusLabel = '🔥 Deep Focus';
+    } else if (h.currentCAS >= 40) {
+      statusLabel = '⚡ Moderate';
+    } else {
+      statusLabel = '⚠️ Distracted';
+    }
 
-    return Card(
-      color: Theme.of(context).colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Text(
-              'Contextual Attention Score',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.white54),
+    return GlassCard(
+      borderGradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [casColor.withAlpha(100), casColor.withAlpha(20)],
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Text(
+            'CONTEXTUAL ATTENTION SCORE',
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 2,
+              color: FateColors.textMuted,
             ),
-            const SizedBox(height: 8),
-            Text(
-              h.currentCAS.toStringAsFixed(1),
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: casColor,
-              ),
+          ),
+          const SizedBox(height: 12),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: h.currentCAS),
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) {
+              return Text(
+                value.toStringAsFixed(1),
+                style: GoogleFonts.outfit(
+                  fontSize: 56,
+                  fontWeight: FontWeight.w800,
+                  color: casColor,
+                  height: 1,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 6),
+          Text(
+            statusLabel,
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: casColor.withAlpha(200),
             ),
-            const SizedBox(height: 4),
-            Text(
-              h.currentCAS >= 70
-                  ? '🔥 Deep Focus'
-                  : h.currentCAS >= 40
-                  ? '⚡ Moderate'
-                  : '⚠️ Distracted',
-              style: TextStyle(color: casColor, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Updates every 5 minutes',
+            style: GoogleFonts.outfit(
+              fontSize: 10,
+              color: FateColors.textMuted,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Updates every 5 minutes',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white38,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -137,97 +199,104 @@ class TimelineScreen extends StatelessWidget {
   Widget _buildSubScoreRow(BuildContext context, ScoreHistoryService h) {
     return Row(
       children: [
-        _buildSubScoreChip(
-          context,
-          'Spatial',
-          h.currentSLoc,
-          Icons.location_on,
+        Expanded(
+          child: _buildSubScoreChip(
+            'Spatial',
+            h.currentSLoc,
+            Icons.location_on_rounded,
+            FateColors.coolGradient,
+          ),
         ),
-        const SizedBox(width: 8),
-        _buildSubScoreChip(context, 'Social', h.currentSSoc, Icons.people),
-        const SizedBox(width: 8),
-        _buildSubScoreChip(
-          context,
-          'Digital',
-          h.currentSDig,
-          Icons.phone_android,
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildSubScoreChip(
+            'Social',
+            h.currentSSoc,
+            Icons.people_rounded,
+            FateColors.purpleGradient,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildSubScoreChip(
+            'Digital',
+            h.currentSDig,
+            Icons.phone_android_rounded,
+            FateColors.warmGradient,
+          ),
         ),
       ],
     );
   }
 
   Widget _buildSubScoreChip(
-    BuildContext context,
     String label,
     double value,
     IconData icon,
+    LinearGradient gradient,
   ) {
     final isPositive = value >= 0;
-    return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          child: Column(
-            children: [
-              Icon(icon, size: 20, color: Colors.white54),
-              const SizedBox(height: 6),
-              Text(
-                '${isPositive ? '+' : ''}${value.toStringAsFixed(1)}',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: isPositive ? Colors.greenAccent : Colors.redAccent,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 11, color: Colors.white54),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+    final color = isPositive
+        ? const Color(0xFF00E676)
+        : const Color(0xFFFF5252);
 
-  // ── Section Titles ──
-  Widget _buildSectionTitle(BuildContext context, String title, String badge) {
-    return Row(
-      children: [
-        Text(
-          title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.white12,
-            borderRadius: BorderRadius.circular(10),
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      child: Column(
+        children: [
+          GradientIcon(icon: icon, size: 18, gradient: gradient),
+          const SizedBox(height: 8),
+          Text(
+            '${isPositive ? '+' : ''}${value.toStringAsFixed(1)}',
+            style: GoogleFonts.jetBrainsMono(
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: color,
+            ),
           ),
-          child: Text(
-            badge,
-            style: const TextStyle(fontSize: 11, color: Colors.white54),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: FateColors.textMuted,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildEmptyState(String text) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white38, fontSize: 13),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: GlassCard(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Icon(
+              Icons.hourglass_empty_rounded,
+              color: FateColors.textMuted,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                text,
+                style: GoogleFonts.outfit(
+                  color: FateColors.textMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // ── Today's Snapshot List (most recent first, max 12 shown) ──
+  // ── Today's Snapshot List ──
   Widget _buildSnapshotList(
     BuildContext context,
     List<Map<String, dynamic>> snapshots,
@@ -243,8 +312,8 @@ class TimelineScreen extends StatelessWidget {
         final time =
             '${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}';
         final cas = (s['CAS'] as num).toDouble();
+        final scoreColor = FateColors.scoreColor(cas);
 
-        // Calculate delta from previous snapshot (which is at index + 1 in this reversed list)
         String deltaText = '';
         if (index + 1 < display.length) {
           final prev = display[index + 1];
@@ -272,72 +341,100 @@ class TimelineScreen extends StatelessWidget {
               mainFactor = 'Digital';
             }
 
-            if (diff > 0) {
-              deltaText = 'Rose largely due to $mainFactor';
-            } else {
-              deltaText = 'Dropped mainly due to $mainFactor';
-            }
+            deltaText = diff > 0
+                ? '↑ Increase due to $mainFactor'
+                : '↓ Decrease due to $mainFactor';
           }
         }
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 50,
-                child: Text(
-                  time,
-                  style: const TextStyle(fontSize: 13, color: Colors.white54),
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.only(bottom: 8),
+          child: GlassCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            borderRadius: 14,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Time + Bar + Score — all on ONE line
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: (cas / 100).clamp(0, 1),
-                        minHeight: 8,
-                        backgroundColor: Colors.white10,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          cas >= 70
-                              ? Colors.greenAccent
-                              : cas >= 40
-                              ? Colors.amberAccent
-                              : Colors.redAccent,
+                    // Time badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: FateColors.bgElevated,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        time,
+                        style: GoogleFonts.jetBrainsMono(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: FateColors.textSecondary,
                         ),
                       ),
                     ),
-                    if (deltaText.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        deltaText,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white38,
-                          fontStyle: FontStyle.italic,
-                        ),
+                    const SizedBox(width: 12),
+                    // Progress bar & Delta Text
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(
+                                begin: 0,
+                                end: (cas / 100).clamp(0, 1),
+                              ),
+                              duration: const Duration(milliseconds: 150),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, _) {
+                                return LinearProgressIndicator(
+                                  value: value,
+                                  minHeight: 6,
+                                  backgroundColor: Colors.white.withAlpha(8),
+                                  valueColor: AlwaysStoppedAnimation(
+                                    scoreColor,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          if (deltaText.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              deltaText,
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                color: FateColors.textPrimary.withAlpha(150),
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: 12),
+                    // Score value
+                    Text(
+                      cas.toStringAsFixed(0),
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: scoreColor,
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 40,
-                child: Text(
-                  cas.toStringAsFixed(0),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -357,6 +454,7 @@ class TimelineScreen extends StatelessWidget {
         final d = dailies[index];
         final date = d['date'] ?? '?';
         final cas = (d['CAS'] as num).toDouble();
+        final scoreColor = FateColors.scoreColor(cas);
 
         String deltaText = '';
         if (index + 1 < dailies.length) {
@@ -375,50 +473,79 @@ class TimelineScreen extends StatelessWidget {
                 (d['S_dig'] as num).toDouble() -
                 (prev['S_dig'] as num).toDouble();
 
-            String mainFactor = 'Spatial Activity';
+            String mainFactor = 'Spatial';
             double maxDiff = locDiff.abs();
             if (socDiff.abs() > maxDiff) {
-              mainFactor = 'Social Engagement';
+              mainFactor = 'Social';
               maxDiff = socDiff.abs();
             }
             if (digDiff.abs() > maxDiff) {
-              mainFactor = 'Digital Distractions';
+              mainFactor = 'Digital';
             }
 
-            if (diff > 0) {
-              deltaText = 'Rose mainly due to\nbetter $mainFactor';
-            } else {
-              deltaText = 'Dropped mainly due to\n$mainFactor';
-            }
+            deltaText = diff > 0
+                ? '↑ Better $mainFactor'
+                : '↓ Weaker $mainFactor';
           }
         }
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 6),
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.calendar_today, size: 18),
-            title: Text(
-              date,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: deltaText.isNotEmpty
-                ? Text(
-                    deltaText,
-                    style: const TextStyle(fontSize: 11, color: Colors.white54),
-                  )
-                : null,
-            trailing: Text(
-              cas.toStringAsFixed(1),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: cas >= 70
-                    ? Colors.greenAccent
-                    : cas >= 40
-                    ? Colors.amberAccent
-                    : Colors.redAccent,
-              ),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: GlassCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            borderRadius: 14,
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: FateColors.subtleGradient,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.calendar_today_rounded,
+                    size: 18,
+                    color: FateColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        date,
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: FateColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (deltaText.isNotEmpty)
+                        Text(
+                          deltaText,
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            color: FateColors.textMuted,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                Text(
+                  cas.toStringAsFixed(1),
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: scoreColor,
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -439,27 +566,50 @@ class TimelineScreen extends StatelessWidget {
         final w = weeks[index];
         final weekEnd = w['week_ending'] ?? '?';
         final cas = (w['CAS'] as num).toDouble();
+        final scoreColor = FateColors.scoreColor(cas);
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 6),
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.date_range, size: 18),
-            title: Text(
-              'Week ending $weekEnd',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            trailing: Text(
-              cas.toStringAsFixed(1),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: cas >= 70
-                    ? Colors.greenAccent
-                    : cas >= 40
-                    ? Colors.amberAccent
-                    : Colors.redAccent,
-              ),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: GlassCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            borderRadius: 14,
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: FateColors.heroGradient,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.date_range_rounded,
+                    size: 18,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'Week ending $weekEnd',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: FateColors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  cas.toStringAsFixed(1),
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: scoreColor,
+                  ),
+                ),
+              ],
             ),
           ),
         );
