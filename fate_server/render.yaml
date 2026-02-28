@@ -8,4 +8,4 @@ services:
       - key: PYTHON_VERSION
         value: "3.11.0"
       - key: DATABASE_URL
-        value: "postgresql://fate_data_xgkw_user:Jri7oeyTU5xGBxcFhHwLSvzsjIk2uPzq@dpg-d6h3cqjh46gs73dvkrrg-a.oregon-postgres.render.com/fate_data_xgkw"
+        sync: false

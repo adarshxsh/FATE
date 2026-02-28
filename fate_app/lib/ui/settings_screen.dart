@@ -20,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _nearbyAccess = false;
   bool _locationAccess = false;
+  bool _ignoreBatteryOptimizations = false;
 
   double _sLoc = 30.0;
   double _sSoc = 30.0;
@@ -36,6 +37,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _checkPermissions() async {
     _locationAccess = await Permission.location.isGranted;
     _nearbyAccess = await Permission.bluetoothScan.isGranted;
+    _ignoreBatteryOptimizations =
+        await Permission.ignoreBatteryOptimizations.isGranted;
     if (mounted) setState(() {});
   }
 
@@ -254,6 +257,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       },
                     ),
+                    const SizedBox(height: 10),
+                    _buildPermissionTile(
+                      title: 'Run Always in Background',
+                      subtitle: 'Ensure tracking stays alive efficiently',
+                      icon: Icons.battery_charging_full_rounded,
+                      value: _ignoreBatteryOptimizations,
+                      gradient: FateColors.warmGradient,
+                      onChanged: (val) async {
+                        setState(() => _ignoreBatteryOptimizations = val);
+                        if (val) {
+                          await Permission.ignoreBatteryOptimizations.request();
+                        }
+                      },
+                    ),
                     const SizedBox(height: 40),
                   ]),
                 ),
@@ -364,7 +381,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trackHeight: 4,
             overlayColor: FateColors.primary.withAlpha(30),
           ),
-          child: Slider(value: value, min: 0, max: 100, onChanged: onChanged),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: value),
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOutCubic,
+            builder: (context, animValue, _) {
+              return Slider(
+                value: animValue,
+                min: 0,
+                max: 100,
+                onChanged: onChanged,
+              );
+            },
+          ),
         ),
       ],
     );

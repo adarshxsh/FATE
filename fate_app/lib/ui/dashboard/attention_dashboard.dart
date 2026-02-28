@@ -258,7 +258,7 @@ class _AttentionDashboardState extends State<AttentionDashboard>
                   height: 160,
                   child: TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0, end: (score / 100).clamp(0, 1)),
-                    duration: const Duration(milliseconds: 1200),
+                    duration: const Duration(milliseconds: 150),
                     curve: Curves.easeOutCubic,
                     builder: (context, value, _) {
                       return CircularProgressIndicator(
@@ -277,7 +277,7 @@ class _AttentionDashboardState extends State<AttentionDashboard>
                   children: [
                     TweenAnimationBuilder<double>(
                       tween: Tween(begin: 0, end: score),
-                      duration: const Duration(milliseconds: 1200),
+                      duration: const Duration(milliseconds: 150),
                       curve: Curves.easeOutCubic,
                       builder: (context, value, _) {
                         return Text(
@@ -707,111 +707,10 @@ class _AttentionDashboardState extends State<AttentionDashboard>
 
     return Column(
       children: entries.take(10).map((entry) {
-        final appName = entry.key.split('.').last;
-        final minutes = entry.value ~/ 60;
-        final seconds = entry.value % 60;
-        final durationStr = minutes > 0
-            ? '${minutes}m ${seconds}s'
-            : '${seconds}s';
-        final fraction = maxVal > 0 ? entry.value / maxVal : 0.0;
-
-        // Color based on usage severity
-        Color barColor;
-        if (entry.value > 600) {
-          barColor = const Color(0xFFFF5252); // Heavy usage
-        } else if (entry.value > 180) {
-          barColor = const Color(0xFFFFAB40); // Moderate
-        } else {
-          barColor = const Color(0xFF00E676); // Light
-        }
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: GlassCard(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            borderRadius: 16,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: barColor.withAlpha(20),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.apps_rounded,
-                        color: barColor,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            appName.length > 1
-                                ? appName[0].toUpperCase() +
-                                      appName.substring(1)
-                                : appName.toUpperCase(),
-                            style: GoogleFonts.outfit(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: FateColors.textPrimary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            entry.key,
-                            style: GoogleFonts.outfit(
-                              fontSize: 10,
-                              color: FateColors.textMuted,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      durationStr,
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: barColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                // Usage bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: fraction),
-                    duration: const Duration(milliseconds: 800),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) {
-                      return LinearProgressIndicator(
-                        value: value,
-                        minHeight: 4,
-                        backgroundColor: Colors.white.withAlpha(8),
-                        valueColor: AlwaysStoppedAnimation(
-                          barColor.withAlpha(180),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+        return PremiumAppActivityTile(
+          packageName: entry.key,
+          durationSecs: entry.value,
+          maxDurationSecs: maxVal,
         );
       }).toList(),
     );
@@ -850,9 +749,9 @@ class _AttentionDashboardState extends State<AttentionDashboard>
     }
 
     if (diff > 0) {
-      return '📈 Rose by ${diff.abs().toStringAsFixed(1)} (mainly due to better $mainFactor)';
+      return '📈 Increase of ${diff.abs().toStringAsFixed(1)} (mainly due to $mainFactor)';
     } else {
-      return '📉 Dropped by ${diff.abs().toStringAsFixed(1)} (mainly due to $mainFactor)';
+      return '📉 Decrease of ${diff.abs().toStringAsFixed(1)} (mainly due to $mainFactor)';
     }
   }
 
@@ -1003,21 +902,23 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
-class AppActivityTile extends StatefulWidget {
+class PremiumAppActivityTile extends StatefulWidget {
   final String packageName;
-  final String durationStr;
+  final int durationSecs;
+  final int maxDurationSecs;
 
-  const AppActivityTile({
-    Key? key,
+  const PremiumAppActivityTile({
+    super.key,
     required this.packageName,
-    required this.durationStr,
-  }) : super(key: key);
+    required this.durationSecs,
+    required this.maxDurationSecs,
+  });
 
   @override
-  State<AppActivityTile> createState() => _AppActivityTileState();
+  State<PremiumAppActivityTile> createState() => _PremiumAppActivityTileState();
 }
 
-class _AppActivityTileState extends State<AppActivityTile> {
+class _PremiumAppActivityTileState extends State<PremiumAppActivityTile> {
   AppInfo? _appInfo;
   bool _isLoading = true;
 
@@ -1048,22 +949,7 @@ class _AppActivityTileState extends State<AppActivityTile> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      // Return a temporary placeholder or shrink while loading to not interrupt layout abruptly
-      return Card(
-        color: Colors.white10,
-        child: ListTile(
-          leading: const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-          title: Text(widget.packageName.split('.').last.toUpperCase()),
-          trailing: Text(widget.durationStr),
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
     // Ignore known system apps or apps explicitly marked as system
@@ -1080,26 +966,100 @@ class _AppActivityTileState extends State<AppActivityTile> {
       return const SizedBox.shrink();
     }
 
-    return Card(
-      color: Colors.white10,
-      child: ListTile(
-        leading: _appInfo?.icon != null
-            ? Image.memory(_appInfo!.icon!, width: 40, height: 40)
-            : const Icon(Icons.apps, color: Colors.blueAccent),
-        title: Text(
-          _appInfo?.name ?? widget.packageName.split('.').last.toUpperCase(),
-          style: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-        subtitle: Text(
-          widget.packageName,
-          style: const TextStyle(fontSize: 12, color: Colors.white54),
-        ),
-        trailing: Text(
-          widget.durationStr,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.orangeAccent,
-          ),
+    final appName = _appInfo?.name ?? widget.packageName.split('.').last;
+    final minutes = widget.durationSecs ~/ 60;
+    final seconds = widget.durationSecs % 60;
+    final durationStr = minutes > 0 ? '${minutes}m ${seconds}s' : '${seconds}s';
+    final fraction = widget.maxDurationSecs > 0
+        ? widget.durationSecs / widget.maxDurationSecs
+        : 0.0;
+
+    // Color based on usage severity
+    Color barColor;
+    if (widget.durationSecs > 600) {
+      barColor = const Color(0xFFFF5252); // Heavy usage
+    } else if (widget.durationSecs > 180) {
+      barColor = const Color(0xFFFFAB40); // Moderate
+    } else {
+      barColor = const Color(0xFF00E676); // Light
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        borderRadius: 16,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: _appInfo?.icon == null
+                        ? barColor.withAlpha(20)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: _appInfo?.icon != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.memory(_appInfo!.icon!),
+                        )
+                      : Icon(Icons.apps_rounded, color: barColor, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        appName.length > 1
+                            ? appName[0].toUpperCase() + appName.substring(1)
+                            : appName.toUpperCase(),
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: FateColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  durationStr,
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: barColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Usage bar
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: fraction),
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) {
+                  return LinearProgressIndicator(
+                    value: value,
+                    minHeight: 4,
+                    backgroundColor: Colors.white.withAlpha(8),
+                    valueColor: AlwaysStoppedAnimation(barColor.withAlpha(180)),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -159,7 +159,7 @@ class TimelineScreen extends StatelessWidget {
           const SizedBox(height: 12),
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: h.currentCAS),
-            duration: const Duration(milliseconds: 1000),
+            duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
             builder: (context, value, _) {
               return Text(
@@ -342,8 +342,8 @@ class TimelineScreen extends StatelessWidget {
             }
 
             deltaText = diff > 0
-                ? '↑ Rose due to $mainFactor'
-                : '↓ Dropped due to $mainFactor';
+                ? '↑ Increase due to $mainFactor'
+                : '↓ Decrease due to $mainFactor';
           }
         }
 
@@ -357,6 +357,7 @@ class TimelineScreen extends StatelessWidget {
               children: [
                 // Time + Bar + Score — all on ONE line
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // Time badge
                     Container(
@@ -378,23 +379,46 @@ class TimelineScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Progress bar
+                    // Progress bar & Delta Text
                     Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0, end: (cas / 100).clamp(0, 1)),
-                          duration: const Duration(milliseconds: 600),
-                          curve: Curves.easeOutCubic,
-                          builder: (context, value, _) {
-                            return LinearProgressIndicator(
-                              value: value,
-                              minHeight: 6,
-                              backgroundColor: Colors.white.withAlpha(8),
-                              valueColor: AlwaysStoppedAnimation(scoreColor),
-                            );
-                          },
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(
+                                begin: 0,
+                                end: (cas / 100).clamp(0, 1),
+                              ),
+                              duration: const Duration(milliseconds: 150),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, _) {
+                                return LinearProgressIndicator(
+                                  value: value,
+                                  minHeight: 6,
+                                  backgroundColor: Colors.white.withAlpha(8),
+                                  valueColor: AlwaysStoppedAnimation(
+                                    scoreColor,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          if (deltaText.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              deltaText,
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                color: FateColors.textPrimary.withAlpha(150),
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -409,23 +433,6 @@ class TimelineScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                // Delta text below (if any)
-                if (deltaText.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 62),
-                    child: Text(
-                      deltaText,
-                      style: GoogleFonts.outfit(
-                        fontSize: 10,
-                        color: FateColors.textMuted,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),

@@ -117,7 +117,7 @@ class ScoreHistoryService extends ChangeNotifier {
         if (_todaySnapshots.isNotEmpty) {
           final lastCas = (_todaySnapshots.last['CAS'] as num).toDouble();
           final drop = lastCas - currentCAS;
-          if (drop >= 8.0) {
+          if (drop >= 15.0) {
             // Significant drop detected
             _serverNotifications.insert(0, {
               'type': 'warning',
@@ -128,6 +128,13 @@ class ScoreHistoryService extends ChangeNotifier {
               'time': DateTime.now().toIso8601String(),
               'cas': currentCAS,
             });
+
+            // Push alert immediately
+            await LocalNotificationService.showAnalysisNotification(
+              currentCAS,
+              insight:
+                  'Your attention score fell by ${drop.toStringAsFixed(1)} points. Stay focused!',
+            );
           }
         }
 
