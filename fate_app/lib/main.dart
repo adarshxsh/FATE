@@ -9,6 +9,7 @@ import 'presentation/state/auth_bloc.dart';
 import 'presentation/state/dashboard_bloc.dart';
 import 'presentation/screens/auth/google_login_screen.dart';
 import 'presentation/screens/dashboard/attention_dashboard.dart';
+import 'presentation/screens/splash/fate_loading_screen.dart';
 import 'presentation/widgets/bottom_nav_bar.dart';
 
 void main() async {
@@ -60,7 +61,7 @@ class FateApp extends StatelessWidget {
             ],
           );
         },
-        home: const AuthWrapper(),
+        home: const FateLoadingScreen(),
       ),
     );
   }

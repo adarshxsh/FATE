@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Extremely vibrant modern gradient -->
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3DE0D8"/>
+      <stop offset="50%" stop-color="#2A9E99"/>
+      <stop offset="100%" stop-color="#1A615E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Clean Minimalist White Background -->
+  <rect width="1024" height="1024" fill="#FFFFFF"/>
+
+  <g transform="translate(16, 0)">
+    <!-- F Stem (Modern bold rounded capsule) -->
+    <rect x="224" y="256" width="128" height="512" rx="64" fill="url(#g)"/>
+    
+    <!-- F Top Bar -->
+    <path d="M 288 256 L 672 256 A 64 64 0 0 1 736 320 A 64 64 0 0 1 672 384 L 288 384 Z" fill="url(#g)"/>
+
+    <!-- Cyber Eye / Middle Bar -->
+    <!-- Center y=576. Curve bounds roughly y=480 to 672 -->
+    <path d="M 288 576 Q 544 352 800 576 Q 544 800 288 576 Z" fill="none" stroke="url(#g)" stroke-width="72" stroke-linejoin="round"/>
+    
+    <!-- Deep Core / Pupil -->
+    <circle cx="544" cy="576" r="64" fill="url(#g)"/>
+    
+    <!-- Tech Frame / Crosshairs -->
+    <!-- Outer tracking dots -->
+    <circle cx="544" cy="312" r="16" fill="#1A615E"/>
+    <circle cx="832" cy="576" r="16" fill="#1A615E"/>
+    <circle cx="544" cy="840" r="16" fill="#1A615E"/>
+  </g>
+</svg>

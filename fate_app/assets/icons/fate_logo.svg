@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Core Glow Gradient -->
+    <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#00E5FF" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#0088CC" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#0A0E27" stop-opacity="0"/>
+    </radialGradient>
+    
+    <!-- Outer Orbital Gradient -->
+    <linearGradient id="orbitalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D500F9" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#00E5FF" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#651FFF" stop-opacity="0.9"/>
+    </linearGradient>
+
+    <!-- Node Gradient -->
+    <linearGradient id="nodeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#00E5FF" stop-opacity="1"/>
+    </linearGradient>
+
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Space (Optional/Transparent normally, kept for context) -->
+  <!-- <rect width="512" height="512" fill="#050714"/> -->
+
+  <!-- Ambient Glow -->
+  <circle cx="256" cy="256" r="180" fill="url(#coreGlow)" opacity="0.6" />
+
+  <!-- Outer Telemetry Ring (Dashed/Scanning) -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="url(#orbitalGradient)" stroke-width="2" stroke-dasharray="10 20 40 20" opacity="0.5" />
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#00E5FF" stroke-width="1" stroke-dasharray="4 8" opacity="0.8" />
+
+  <!-- The Three Pillars (Nodes) -->
+  <g filter="url(#neonGlow)">
+    <!-- Location Node -->
+    <circle cx="256" cy="56" r="12" fill="url(#nodeGradient)" />
+    <!-- Social Node -->
+    <circle cx="82.7" cy="356" r="12" fill="url(#nodeGradient)" />
+    <!-- Digital Node -->
+    <circle cx="429.3" cy="356" r="12" fill="url(#nodeGradient)" />
+  </g>
+
+  <!-- Connection Pathways (Neural/Telemetry Links) -->
+  <path d="M 256 68 L 256 220" fill="none" stroke="#00E5FF" stroke-width="3" opacity="0.7" filter="url(#neonGlow)"/>
+  <path d="M 93 350 L 226 273" fill="none" stroke="#D500F9" stroke-width="3" opacity="0.7" filter="url(#neonGlow)"/>
+  <path d="M 419 350 L 286 273" fill="none" stroke="#651FFF" stroke-width="3" opacity="0.7" filter="url(#neonGlow)"/>
+
+  <!-- Inner Protective Shield (Focus Ring) -->
+  <polygon points="256,150 347,203 347,309 256,362 165,309 165,203" fill="none" stroke="url(#orbitalGradient)" stroke-width="4" filter="url(#neonGlow)" opacity="0.9"/>
+  <polygon points="256,170 330,213 330,299 256,342 182,299 182,213" fill="none" stroke="#00E5FF" stroke-width="1" opacity="0.4"/>
+
+  <!-- Central Core (The Engine / AI) -->
+  <g filter="url(#neonGlow)">
+    <polygon points="256,216 286,234 286,278 256,296 226,278 226,234" fill="#00E5FF" opacity="0.9"/>
+    <polygon points="256,226 276,238 276,274 256,286 236,274 236,238" fill="#FFFFFF"/>
+  </g>
+
+  <!-- Dynamic Data Particles -->
+  <circle cx="256" cy="140" r="4" fill="#FFF" filter="url(#neonGlow)"/>
+  <circle cx="150" cy="320" r="4" fill="#FFF" filter="url(#neonGlow)"/>
+  <circle cx="362" cy="320" r="4" fill="#FFF" filter="url(#neonGlow)"/>
+</svg>

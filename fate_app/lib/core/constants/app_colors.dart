@@ -22,6 +22,16 @@ class AppColors {
   static const Color error = Color(0xFF1A615E);
   static const Color alert = error;
 
+  // FATE Loading Screen Specific Brand Colors
+  static const Color backgroundDark = Color(0xFF050714);
+  static const Color backgroundCard = Color(0xFF0A0E27);
+  static const Color neonCyan = Color(0xFF00E5FF);
+  static const Color deepCyan = Color(0xFF0088CC);
+  static const Color neonPurple = Color(0xFFD500F9);
+  static const Color deepPurple = Color(0xFF651FFF);
+  static const Color errorRed = Color(0xFFFF1744);
+  static const Color successGreen = Color(0xFF00E676);
+
   static const Color shadowDark = Color(0x33000000); 
   static const Color shadowLight = Color(0x11FFFFFF);
 
