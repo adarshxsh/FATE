@@ -445,17 +445,22 @@ class _SystemLogTerminal extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(left: 0, top: 0, bottom: 0, width: 2, child: Container(color: AppColors.primary.withOpacity(0.3))),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _logLine('> INITIATING NEURAL LINK...', AppColors.textMuted),
-                _logLine('> SENSOR ARRAY [BLE_01] CONNECTED', AppColors.textMuted),
-                _logLine('> DETECTING AMBIENT NOISE: 42dB', AppColors.textMuted),
-                _logLine('> FOCUS STATE LOCKED', AppColors.primary),
-                _logLine('> AWAITING INPUT...', AppColors.primary, animate: true),
-              ],
+          Positioned.fill(
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(), // Just showing static content as visual
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _logLine('> INITIATING NEURAL LINK...', AppColors.textMuted),
+                    _logLine('> SENSOR ARRAY [BLE_01] CONNECTED', AppColors.textMuted),
+                    _logLine('> DETECTING AMBIENT NOISE: 42dB', AppColors.textMuted),
+                    _logLine('> FOCUS STATE LOCKED', AppColors.primary),
+                    _logLine('> AWAITING INPUT...', AppColors.primary, animate: true),
+                  ],
+                ),
+              ),
             ),
           ),
           Positioned(
@@ -466,7 +471,7 @@ class _SystemLogTerminal extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.transparent, AppColors.background.withOpacity(0.8)],
+                  colors: [Colors.transparent, AppColors.background.withOpacity(0.9)],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),

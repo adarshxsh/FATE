@@ -36,7 +36,7 @@ class _TimelineScreenState extends State<TimelineScreen> with SingleTickerProvid
           // Background Grid
           Positioned.fill(
             child: Opacity(
-              opacity: 0.2,
+              opacity: 0.1,
               child: CustomPaint(
                 painter: _GridPainter(color: AppColors.primary),
               ),
@@ -59,7 +59,7 @@ class _TimelineScreenState extends State<TimelineScreen> with SingleTickerProvid
                         width: 64,
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Color(0x4D0F1110), // AppColors.surface.withOpacity(0.3)
+                            color: AppColors.surface.withOpacity(0.5),
                             border: Border(right: BorderSide(color: AppColors.gridLines)),
                           ),
                         ),
@@ -128,7 +128,7 @@ class _TimelineScreenState extends State<TimelineScreen> with SingleTickerProvid
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(2),
+                                borderRadius: BorderRadius.circular(4),
                               ),
                               child: const Text("SCRUB: 10:15", style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
                             ),
@@ -157,7 +157,7 @@ class _TimelineScreenState extends State<TimelineScreen> with SingleTickerProvid
 
   Widget _buildHeader() {
     return Container(
-      color: const Color(0xFF0A0C0B),
+      color: AppColors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -210,7 +210,7 @@ class _TimelineScreenState extends State<TimelineScreen> with SingleTickerProvid
                 decoration: BoxDecoration(
                   color: AppColors.background,
                   border: Border.all(color: AppColors.gridLines),
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Icon(Icons.calendar_today, color: AppColors.primary, size: 16),
               ),
@@ -223,7 +223,7 @@ class _TimelineScreenState extends State<TimelineScreen> with SingleTickerProvid
 
   Widget _buildHistogram() {
     return Container(
-      color: AppColors.surface,
+      color: AppColors.background,
       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 8),
       child: Column(
         children: [
@@ -302,7 +302,7 @@ class _TimelineScreenState extends State<TimelineScreen> with SingleTickerProvid
         height: 64 * heightFactor,
         decoration: BoxDecoration(
           color: isHighlight ? AppColors.secondary : AppColors.secondary.withOpacity(heightFactor * 0.8 + 0.1),
-          borderRadius: BorderRadius.circular(1),
+          borderRadius: BorderRadius.circular(2),
           boxShadow: isHighlight ? [
             BoxShadow(color: AppColors.secondary.withOpacity(0.5), blurRadius: 4, spreadRadius: 1)
           ] : null,
@@ -349,75 +349,77 @@ class _TimelineScreenState extends State<TimelineScreen> with SingleTickerProvid
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipPath(
-                  clipper: _HexClipper(),
-                  child: Container(
-                    width: 40,
-                    height: 40,
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
                     color: AppColors.primary,
-                    child: Container(
-                      margin: const EdgeInsets.all(1),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                      ),
-                      child: Icon(icon, color: color, size: 20),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(7),
                     ),
+                    child: Icon(icon, color: color, size: 20),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ClipPath(
-                    clipper: _ChamferClipper(),
-                    child: Container(
+                  child: Container(
+                    decoration: BoxDecoration(
                       color: AppColors.surface,
-                      padding: const EdgeInsets.all(12),
-                      child: Stack(
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1)),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: color.withOpacity(0.1),
-                                      border: Border.all(color: color.withOpacity(0.3)),
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                    child: Text(tag, style: TextStyle(color: color, fontSize: 10)),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: color.withOpacity(0.2)),
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Stack(
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1)),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: color.withOpacity(0.1),
+                                    border: Border.all(color: color.withOpacity(0.3)),
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(subtitle, style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                                  Text(duration, style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            ],
-                          ),
-                          if (isLong)
-                            Positioned(
-                              bottom: -12,
-                              left: -12,
-                              right: -12,
-                              child: Container(
-                                height: 2,
-                                color: color.withOpacity(0.2),
-                                alignment: Alignment.centerLeft,
-                                child: FractionallySizedBox(
-                                  widthFactor: 0.85,
-                                  child: Container(color: color),
+                                  child: Text(tag, style: TextStyle(color: color, fontSize: 10)),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(subtitle, style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                                Text(duration, style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
+                        ),
+                        if (isLong)
+                          Positioned(
+                            bottom: -12,
+                            left: -12,
+                            right: -12,
+                            child: Container(
+                              height: 2,
+                              color: color.withOpacity(0.2),
+                              alignment: Alignment.centerLeft,
+                              child: FractionallySizedBox(
+                                widthFactor: 0.85,
+                                child: Container(color: color),
                               ),
-                            )
-                        ],
-                      ),
+                            ),
+                          )
+                      ],
                     ),
                   ),
                 ),
@@ -467,39 +469,43 @@ class _TimelineScreenState extends State<TimelineScreen> with SingleTickerProvid
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                ClipPath(
-                  clipper: _HexClipper(),
-                  child: Container(
-                    width: 32,
-                    height: 32,
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
                     color: color,
-                    child: Container(
-                      margin: const EdgeInsets.all(1),
-                      decoration: BoxDecoration(color: AppColors.surface),
-                      child: Icon(icon, color: color, size: 16),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(5),
                     ),
+                    child: Icon(icon, color: color, size: 16),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ClipPath(
-                    clipper: _ChamferClipper(chamferSize: 8.0),
-                    child: Container(
+                  child: Container(
+                    decoration: BoxDecoration(
                       color: AppColors.surface,
-                      padding: const EdgeInsets.all(8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1)),
-                              const SizedBox(width: 8),
-                              Text(subtitle, style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
-                            ],
-                          ),
-                          Text(duration, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.gridLines),
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1)),
+                            const SizedBox(width: 8),
+                            Text(subtitle, style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                          ],
+                        ),
+                        Text(duration, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ],
                     ),
                   ),
                 ),
@@ -563,79 +569,90 @@ class _TimelineScreenState extends State<TimelineScreen> with SingleTickerProvid
   }
 
   Widget _buildEventDetailsDrawer() {
-    return ClipPath(
-      clipper: _ChamferClipper(),
-      child: Container(
+    return Container(
+      decoration: BoxDecoration(
         color: AppColors.surface.withOpacity(0.95),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(height: 4, width: double.infinity, color: AppColors.primary),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 8, height: 8,
-                              decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.primary, blurRadius: 4)]),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text("EVENT_DETAILS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 2)),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _buildDetailRow("Package", "com.slack.mobile", AppColors.primary),
-                        _buildDetailRow("Start", "10:20:04.452", Colors.white),
-                        _buildDetailRow("End", "10:34:16.110", Colors.white),
-                        _buildDetailRow("Interrupts", "0 (High Focus)", AppColors.secondary),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: 5),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 4, 
+            width: double.infinity, 
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Icon(Icons.forum, color: AppColors.primary, size: 24),
+                      Row(
+                        children: [
+                          Container(
+                            width: 8, height: 8,
+                            decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.primary, blurRadius: 4)]),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text("EVENT_DETAILS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 2)),
+                        ],
                       ),
-                      const SizedBox(height: 24),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
-                          border: Border.all(color: AppColors.primary.withOpacity(0.5)),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                        child: const Text("CLOSE", style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                      )
+                      const SizedBox(height: 12),
+                      _buildDetailRow("Package", "com.slack.mobile", AppColors.primary),
+                      _buildDetailRow("Start", "10:20:04.452", Colors.white),
+                      _buildDetailRow("End", "10:34:16.110", Colors.white),
+                      _buildDetailRow("Interrupts", "0 (High Focus)", AppColors.secondary),
                     ],
                   ),
-                ],
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Container(width: 4, height: 4, color: AppColors.gridLines, margin: const EdgeInsets.only(right: 4, bottom: 8)),
-                Container(width: 4, height: 4, color: AppColors.gridLines, margin: const EdgeInsets.only(right: 4, bottom: 8)),
-                Container(width: 4, height: 4, color: AppColors.gridLines, margin: const EdgeInsets.only(right: 8, bottom: 8)),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.forum, color: AppColors.primary, size: 24),
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.5)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text("CLOSE", style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    )
+                  ],
+                ),
               ],
-            )
-          ],
-        ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.gridLines, shape: BoxShape.circle), margin: const EdgeInsets.only(right: 4, bottom: 8)),
+              Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.gridLines, shape: BoxShape.circle), margin: const EdgeInsets.only(right: 4, bottom: 8)),
+              Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppColors.gridLines, shape: BoxShape.circle), margin: const EdgeInsets.only(right: 12, bottom: 8)),
+            ],
+          )
+        ],
       ),
     );
   }
@@ -676,44 +693,4 @@ class _GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _ChamferClipper extends CustomClipper<Path> {
-  final double chamferSize;
-
-  _ChamferClipper({this.chamferSize = 12.0});
-
-  @override
-  Path getClip(Size size) {
-    Path path = Path();
-    path.moveTo(chamferSize, 0);
-    path.lineTo(size.width, 0);
-    path.lineTo(size.width, size.height - chamferSize);
-    path.lineTo(size.width - chamferSize, size.height);
-    path.lineTo(0, size.height);
-    path.lineTo(0, chamferSize);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-class _HexClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    Path path = Path();
-    path.moveTo(size.width / 2, 0);
-    path.lineTo(size.width, size.height * 0.25);
-    path.lineTo(size.width, size.height * 0.75);
-    path.lineTo(size.width / 2, size.height);
-    path.lineTo(0, size.height * 0.75);
-    path.lineTo(0, size.height * 0.25);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
