@@ -48,7 +48,7 @@ class _AttentionDashboardState extends State<AttentionDashboard>
   Widget build(BuildContext context) {
     final telemetry = context.watch<TelemetryProvider>();
     final scoreService = context.watch<ScoreHistoryService>();
-    final score = scoreService.currentCAS;
+    final score = telemetry.focusScore;
     final scoreColor = FateColors.scoreColor(score);
 
     return Scaffold(
@@ -402,7 +402,7 @@ class _AttentionDashboardState extends State<AttentionDashboard>
                 icon: Icons.speed_rounded,
                 label: 'Sub-Scores',
                 value:
-                    '${scoreService.currentSLoc.toStringAsFixed(0)}/${scoreService.currentSSoc.toStringAsFixed(0)}/${scoreService.currentSDig.toStringAsFixed(0)}',
+                    '${telemetry.sLoc.toStringAsFixed(0)}/${telemetry.sSoc.toStringAsFixed(0)}/${telemetry.sDig.toStringAsFixed(0)}',
                 gradient: FateColors.heroGradient,
                 subtitle: 'Loc / Soc / Dig',
               ),

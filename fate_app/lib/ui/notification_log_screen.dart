@@ -100,7 +100,7 @@ class NotificationLogScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Server analysis arrives every 5 minutes',
+                      'Local analysis arrives every 5 minutes',
                       style: GoogleFonts.outfit(
                         color: FateColors.textMuted,
                         fontSize: 12,

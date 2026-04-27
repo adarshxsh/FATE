@@ -58,6 +58,12 @@ void main() async {
           },
           update: (_, telemetry, service) {
             service!.updateUserId(telemetry.userId);
+            service.syncRealtimeScores(
+              telemetry.focusScore,
+              telemetry.sLoc,
+              telemetry.sSoc,
+              telemetry.sDig,
+            );
             return service;
           },
         ),

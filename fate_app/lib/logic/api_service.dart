@@ -4,9 +4,9 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // Production Server (Render) — uncomment after pushing to git
-  // static const String baseUrl = 'https://fate-server-g1co.onrender.com/api/ingest';
+  static const String baseUrl = 'https://fate-server-g1co.onrender.com/api/ingest';
   // Development Server (Local Network)
-  static const String baseUrl = 'http://172.31.42.101:8000/api/ingest';
+  // static const String baseUrl = 'http://172.31.42.101:8000/api/ingest';
 
   static Future<Map<String, dynamic>?> sendTelemetry(
     String type,

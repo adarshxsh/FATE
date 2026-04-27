@@ -7,9 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart' as google_auth;
 import 'api_service.dart';
 import 'notification_service.dart';
+import 'secure_db_service.dart';
+import 'scoring_engine.dart';
 
 class TelemetryProvider extends ChangeNotifier {
   final SharedPreferences prefs;
+  final SecureDbService _db = SecureDbService();
 
   // Using the singleton pattern that seems to be required by the local package/setup
   final google_auth.GoogleSignIn _googleSignIn =
@@ -25,6 +28,9 @@ class TelemetryProvider extends ChangeNotifier {
   // Core metrics
   double _fragmentationScore = 0.0;
   double _focusScore = 100.0;
+  double _sLoc = 0.0;
+  double _sSoc = 0.0;
+  double _sDig = 0.0;
   String _currentContext = "Unknown";
   int _nearbyPeers = 0;
   final Map<String, String> _nearbyDevices = {};
@@ -55,7 +61,6 @@ class TelemetryProvider extends ChangeNotifier {
   String? _currentZone;
   int _periodsInCurrentZone = 0;
   final List<Map<String, dynamic>> _pendingLocationUpdates = [];
-  DateTime? _lastLocationUploadTime;
 
   // Notification log for UI display
   final List<Map<String, dynamic>> _notificationLog = [];
@@ -102,6 +107,9 @@ class TelemetryProvider extends ChangeNotifier {
   bool get usageEnabled => _usageEnabled;
   double? get lastLat => _lastLat;
   double? get lastLng => _lastLng;
+  double get sLoc => _sLoc;
+  double get sSoc => _sSoc;
+  double get sDig => _sDig;
 
   double get spatialWeight => _spatialWeight;
   double get socialWeight => _socialWeight;
@@ -309,13 +317,27 @@ class TelemetryProvider extends ChangeNotifier {
   }
 
   Future<void> _startAppEngine() async {
-    await _loadFriends();
-    await fetchSettings();
+    // Local-first: No server friends load or settings fetch needed for core function
+    // But we keep them for P2P identity resolution
+    _loadFriends(); 
+    fetchSettings();
 
     if (Platform.isAndroid) {
       _startNativeTelemetry();
       _listenToEvents();
+      
+      // Initial score calculation
+      _recalculateLocalScore();
     }
+  }
+
+  Future<void> _recalculateLocalScore() async {
+    final scores = await ScoringEngine.calculateDailyCas(DateTime.now());
+    _focusScore = scores['CAS'] ?? 50.0;
+    _sLoc = scores['S_loc'] ?? 0.0;
+    _sSoc = scores['S_soc'] ?? 0.0;
+    _sDig = scores['S_dig'] ?? 0.0;
+    notifyListeners();
   }
 
   Future<void> signOut() async {
@@ -404,38 +426,19 @@ class TelemetryProvider extends ChangeNotifier {
             _periodsInCurrentZone = 1;
           }
 
-          // Flush to server every 10 minutes
-          final now = DateTime.now();
-          final shouldUpload =
-              _lastLocationUploadTime == null ||
-              now.difference(_lastLocationUploadTime!).inMinutes >= 10;
-
-          if (shouldUpload && _pendingLocationUpdates.isNotEmpty) {
-            _lastLocationUploadTime = now;
-            final batch = List<Map<String, dynamic>>.from(
-              _pendingLocationUpdates,
-            );
-            _pendingLocationUpdates.clear();
-
-            for (final update in batch) {
-              ApiService.sendTelemetry('location', {
-                'user_id': _userId,
-                'lat': update['lat'],
-                'lng': update['lng'],
-                'periods_count': update['periods_count'],
-              }).then((res) {
-                if (res != null && res['status'] == 'success') {
-                  _currentContext = res['mapped_zone'] ?? newZone;
-                  notifyListeners();
-                }
-              });
-            }
-          }
+          // Local-first storage
+          _db.insertLocationLog({
+            'lat': newLat,
+            'lng': newLng,
+            'zone': _currentZone,
+            'periods_count': _periodsInCurrentZone,
+          });
 
           _currentContext = newZone;
           _addLog(
-            "LOC_POLL | Zone: $newZone | Periods: $_periodsInCurrentZone | Pending: ${_pendingLocationUpdates.length}",
+            "LOC_SECURE | Saved to encrypted vault | Zone: $newZone",
           );
+          _recalculateLocalScore();
           notifyListeners();
           break;
 
@@ -484,12 +487,12 @@ class TelemetryProvider extends ChangeNotifier {
               );
             }
 
-            ApiService.sendTelemetry('proximity', {
-              'user_id': _userId,
+            _db.insertProximityLog({
               'nearby_peers': _nearbyPeers,
               'peer_name': realName,
               'distance': distance,
             });
+            _recalculateLocalScore();
             notifyListeners();
           });
 
@@ -510,13 +513,14 @@ class TelemetryProvider extends ChangeNotifier {
                   .inSeconds;
               _peerFoundTimestamps.remove(endpointId);
               if (durationSeconds > 60) {
-                ApiService.sendTelemetry('engagement', {
-                  'user_id': _userId,
+                _db.insertEngagementLog({
                   'peer_device_id': endpointId,
                   'engagement_duration_seconds': durationSeconds.toDouble(),
+                  // In a real P2P setup, we would have received the peer's CAS via Nearby payload
+                  'peer_cas_at_time': 50.0, 
                 });
                 _addLog(
-                  "ENG_SENT | To: /engagement | Peer: $endpointId | Duration: ${durationSeconds}s",
+                  "ENG_SECURE | Vaulted engagement: $endpointId | ${durationSeconds}s",
                 );
               }
             }
@@ -524,11 +528,10 @@ class TelemetryProvider extends ChangeNotifier {
             _peerDistances.remove(endpointId);
             if (_nearbyPeers > 0) _nearbyPeers--;
           }
-          ApiService.sendTelemetry('proximity', {
-            'user_id': _userId,
+          _db.insertProximityLog({
             'nearby_peers': _nearbyPeers,
           });
-          _addLog("PROX_SENT | To: /proximity | Nearby Peers: $_nearbyPeers");
+          _recalculateLocalScore();
           notifyListeners();
           break;
 
@@ -551,15 +554,14 @@ class TelemetryProvider extends ChangeNotifier {
           _lastForegroundApp = pkg;
           _appUsageStats[pkg] = (_appUsageStats[pkg] ?? 0) + 10;
 
-          ApiService.sendTelemetry('digital', {
-            'user_id': _userId,
+          _db.insertDigitalLog({
             'package': pkg,
             'duration': 10000,
-            if (prevApp != null && prevApp != pkg) 'prev_package': prevApp,
-            if (switchTimeSecs != null) 'switch_time_seconds': switchTimeSecs,
+            'prev_package': prevApp,
+            'switch_time_seconds': switchTimeSecs,
           });
           _addLog(
-            "USG_SENT | To: /digital | Foreground: $pkg${switchTimeSecs != null ? ' | Switch: ${switchTimeSecs.toStringAsFixed(1)}s' : ''}",
+            "USG_SECURE | Vaulted digital: $pkg",
           );
 
           if (_pendingNotifications.containsKey(pkg)) {
@@ -568,12 +570,11 @@ class TelemetryProvider extends ChangeNotifier {
             final responseTimeSeconds =
                 (DateTime.now().millisecondsSinceEpoch - postTimeMs) / 1000.0;
             final content = '${notifData['title']} ${notifData['text']}';
-            ApiService.sendNotification(
-              _userId ?? 0,
-              pkg,
-              content,
-              responseTimeSeconds: responseTimeSeconds,
-            );
+            _db.insertNotificationLog({
+              'app_category': 'OTHER', // Classification could happen here
+              'content': content,
+              'response_time_seconds': responseTimeSeconds,
+            });
             for (final entry in _notificationLog) {
               if (entry['package'] == pkg && entry['status'] == 'pending') {
                 entry['status'] = 'clicked';
@@ -582,7 +583,7 @@ class TelemetryProvider extends ChangeNotifier {
               }
             }
             _addLog(
-              "NOTIF_CLICK | $pkg | response: ${responseTimeSeconds.toStringAsFixed(1)}s",
+              "NOTIF_SECURE | Vaulted interaction: $pkg",
             );
           }
           notifyListeners();

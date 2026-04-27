@@ -184,7 +184,7 @@ class TimelineScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Updates every 5 minutes',
+            'Live from Local Analysis',
             style: GoogleFonts.outfit(
               fontSize: 10,
               color: FateColors.textMuted,
