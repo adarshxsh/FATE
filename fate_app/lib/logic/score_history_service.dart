@@ -5,9 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'secure_db_service.dart';
 import 'scoring_engine.dart';
 
-/// Polls the server every 5 minutes for a fresh CAS snapshot.
-/// Stores snapshots locally. At end of day, compresses into daily average.
-/// After 7 daily averages, compresses into a weekly average.
+/// Stores and manages CAS snapshots locally.
+/// 
+/// Every 5 minutes the ScoreHistoryService recalculates CAS from local DB
+/// and stores the snapshot in SharedPreferences. At end of day,
+/// compresses into a daily average. After 7 daily averages, into a weekly.
 ///
 /// Storage format in SharedPreferences:
 ///   "score_snapshots"  → List of 5-min snapshots for TODAY
@@ -15,7 +17,6 @@ import 'scoring_engine.dart';
 ///   "score_weekly"     → List of weekly averages (last 4 weeks)
 class ScoreHistoryService extends ChangeNotifier {
   final SharedPreferences prefs;
-  int? userId;
   Timer? _pollTimer;
 
   // Countdown timer state
@@ -45,18 +46,8 @@ class ScoreHistoryService extends ChangeNotifier {
   // Server-pushed insight notifications
   List<Map<String, dynamic>> _serverNotifications = [];
 
-  ScoreHistoryService({required this.prefs, this.userId}) {
+  ScoreHistoryService({required this.prefs}) {
     _loadFromDisk();
-  }
-
-  void updateUserId(int? newId) {
-    if (userId != newId) {
-      userId = newId;
-      notifyListeners();
-      if (userId != null && _pollTimer == null) {
-        startPolling();
-      }
-    }
   }
 
   List<Map<String, dynamic>> get todaySnapshots => _todaySnapshots;
@@ -64,7 +55,25 @@ class ScoreHistoryService extends ChangeNotifier {
   List<Map<String, dynamic>> get weeklyAverages => _weeklyAverages;
   List<Map<String, dynamic>> get serverNotifications => _serverNotifications;
 
-  /// Start the 5-minute polling loop with a 1-second countdown tick
+  /// Called by the WorkManager background dispatcher to store a snapshot
+  /// computed outside the Flutter widget tree (no notifyListeners).
+  void storeBackgroundSnapshot(Map<String, double> data) {
+    final snapshot = {
+      'ts': DateTime.now().toIso8601String(),
+      'CAS': data['CAS'] ?? 50.0,
+      'S_loc': data['S_loc'] ?? 0.0,
+      'S_soc': data['S_soc'] ?? 0.0,
+      'S_dig': data['S_dig'] ?? 0.0,
+    };
+    _todaySnapshots.add(snapshot);
+    if (_todaySnapshots.length > 30) {
+      _todaySnapshots = _todaySnapshots.sublist(_todaySnapshots.length - 30);
+    }
+    _saveToDisk();
+    debugPrint('[ScoreHistory] Background snapshot stored: CAS=${data['CAS']}');
+  }
+
+  /// Start the 5-minute local analysis loop
   void startPolling() {
     // Immediately fetch once
     fetchAndStore(isBackground: false);
@@ -229,8 +238,9 @@ class ScoreHistoryService extends ChangeNotifier {
   }
 
   Map<String, dynamic> _averageSnapshots(List<Map<String, dynamic>> snapshots) {
-    if (snapshots.isEmpty)
+    if (snapshots.isEmpty) {
       return {'CAS': 0, 'S_loc': 0, 'S_soc': 0, 'S_dig': 0};
+    }
 
     double cas = 0, sLoc = 0, sSoc = 0, sDig = 0;
     for (final s in snapshots) {

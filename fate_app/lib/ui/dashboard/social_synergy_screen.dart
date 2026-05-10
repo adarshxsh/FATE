@@ -78,7 +78,7 @@ class SocialSynergyScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${telemetry.closeFriends.length} excluded from scoring',
+                             '${telemetry.localFriends.length} excluded from scoring',
                               style: GoogleFonts.outfit(
                                 color: FateColors.textSecondary,
                                 fontSize: 12,
@@ -260,9 +260,9 @@ class SocialSynergyScreen extends StatelessWidget {
                               inactiveThumbColor: FateColors.textMuted,
                               onChanged: (countThisPeer) {
                                 if (countThisPeer) {
-                                  telemetry.removeFriend(endpointId);
+                                  telemetry.removeLocalFriend(endpointId);
                                 } else {
-                                  telemetry.addFriend(endpointId);
+                                  telemetry.addLocalFriend(endpointId);
                                 }
                               },
                             ),

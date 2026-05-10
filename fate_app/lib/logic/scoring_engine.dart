@@ -70,7 +70,9 @@ class ScoringEngine {
     double score = 50.0;
 
     final sortedLogs = List<Map<String, dynamic>>.from(usageLogs);
-    sortedLogs.sort((a, b) => (a['timestamp'] as num).compareTo(b['timestamp'] as num));
+    sortedLogs.sort(
+      (a, b) => (a['timestamp'] as num).compareTo(b['timestamp'] as num),
+    );
 
     Map<String, dynamic>? prevLog;
     for (final log in sortedLogs) {
@@ -84,9 +86,12 @@ class ScoringEngine {
       if (prevLog != null) {
         final prevPkg = prevLog['package_name'] ?? '';
         final prevSeverity = appSeverities[prevPkg] ?? 0.5;
-        final timeBetween = (log['timestamp'] as num) - (prevLog['timestamp'] as num);
+        final timeBetween =
+            (log['timestamp'] as num) - (prevLog['timestamp'] as num);
 
-        if (prevSeverity < 0 && severity > 0 && timeBetween < switchPenaltyThresholdSecs) {
+        if (prevSeverity < 0 &&
+            severity > 0 &&
+            timeBetween < switchPenaltyThresholdSecs) {
           score += switchPenaltyPoints;
         }
       }
@@ -96,7 +101,10 @@ class ScoringEngine {
     return score.clamp(0.0, 100.0);
   }
 
-  static double calculateNotificationScore(String category, double? responseTimeSecs) {
+  static double calculateNotificationScore(
+    String category,
+    double? responseTimeSecs,
+  ) {
     if (responseTimeSecs == null) return 0.0;
 
     if (category == "DISTRACTING") {
@@ -107,15 +115,23 @@ class ScoringEngine {
     return 0.0;
   }
 
-  static double computeFinalCas(double sLoc, double sSoc, double sDig,
-      {double wLoc = 0.3, double wSoc = 0.3, double wDig = 0.4}) {
+  static double computeFinalCas(
+    double sLoc,
+    double sSoc,
+    double sDig, {
+    double wLoc = 0.3,
+    double wSoc = 0.3,
+    double wDig = 0.4,
+  }) {
     final raw = (wLoc * sLoc) + (wSoc * sSoc) + (wDig * sDig);
     final scaled = 50.0 + raw * 1.5;
     return scaled.clamp(0.0, 100.0);
   }
 
   static Future<Map<String, double>> calculateDailyCas(DateTime date) async {
-    final startOfDay = DateTime(date.year, date.month, date.day).millisecondsSinceEpoch / 1000.0;
+    final startOfDay =
+        DateTime(date.year, date.month, date.day).millisecondsSinceEpoch /
+        1000.0;
     final endOfDay = startOfDay + 86400;
     final dbService = SecureDbService();
 
@@ -123,7 +139,11 @@ class ScoringEngine {
     final args = [startOfDay, endOfDay];
 
     // 1. Spatial
-    final locations = await dbService.getLogs('location_logs', where: where, whereArgs: args);
+    final locations = await dbService.getLogs(
+      'location_logs',
+      where: where,
+      whereArgs: args,
+    );
     Map<String, double> zoneHours = {};
     for (var loc in locations) {
       final zone = loc['mapped_zone'] ?? "Unknown Campus Area";
@@ -136,16 +156,29 @@ class ScoringEngine {
     });
 
     // 2. Social
-    final proximities = await dbService.getLogs('proximity_logs', where: where, whereArgs: args);
+    final proximities = await dbService.getLogs(
+      'proximity_logs',
+      where: where,
+      whereArgs: args,
+    );
     double avgPeers = 0;
     if (proximities.isNotEmpty) {
-      avgPeers = proximities.map((p) => p['nearby_peers_count'] as int).reduce((a, b) => a + b) / proximities.length;
+      avgPeers =
+          proximities
+              .map((p) => p['nearby_peers_count'] as int)
+              .reduce((a, b) => a + b) /
+          proximities.length;
     }
-    bool isGroupStudy = avgPeers >= 2 && zoneHours.keys.any((z) => (zoneWeights[z] ?? 0) > 0);
+    bool isGroupStudy =
+        avgPeers >= 2 && zoneHours.keys.any((z) => (zoneWeights[z] ?? 0) > 0);
     double sSoc = calculateSocialScore(avgPeers.toInt(), isGroupStudy);
 
     // Social Contagion
-    final engagements = await dbService.getLogs('engagement_logs', where: where, whereArgs: args);
+    final engagements = await dbService.getLogs(
+      'engagement_logs',
+      where: where,
+      whereArgs: args,
+    );
     double contagionModifier = 0.0;
     for (var eng in engagements) {
       final peerCas = eng['peer_cas_at_time'] as double?;
@@ -161,12 +194,23 @@ class ScoringEngine {
     sSoc += contagionModifier;
 
     // 3. Digital
-    final usages = await dbService.getLogs('digital_logs', where: where, whereArgs: args);
+    final usages = await dbService.getLogs(
+      'digital_logs',
+      where: where,
+      whereArgs: args,
+    );
     double sDig = calculateDigitalScore100(usages);
 
-    final notifs = await dbService.getLogs('notification_logs', where: where, whereArgs: args);
+    final notifs = await dbService.getLogs(
+      'notification_logs',
+      where: where,
+      whereArgs: args,
+    );
     for (var n in notifs) {
-      sDig += calculateNotificationScore(n['app_category'] ?? "OTHER", n['response_time_seconds'] as double?);
+      sDig += calculateNotificationScore(
+        n['app_category'] ?? "OTHER",
+        n['response_time_seconds'] as double?,
+      );
     }
 
     final cas = computeFinalCas(sLoc, sSoc, sDig.clamp(0.0, 100.0));

@@ -48,7 +48,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: FateColors.bgDeep,
       body: Consumer<TelemetryProvider>(
         builder: (context, telemetry, child) {
-          if (!_isInit && !telemetry.isLoadingSettings) {
+          if (!_isInit) {
             _sLoc = telemetry.spatialWeight * 100;
             _sSoc = telemetry.socialWeight * 100;
             _sDig = telemetry.digitalWeight * 100;
@@ -107,80 +107,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           }, FateColors.purpleGradient),
                           const SizedBox(height: 20),
                           SizedBox(
-                            width: double.infinity,
-                            height: 48,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: telemetry.isLoadingSettings
-                                    ? null
-                                    : FateColors.heroGradient,
-                                color: telemetry.isLoadingSettings
-                                    ? FateColors.bgElevated
-                                    : null,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(14),
-                                  onTap: telemetry.isLoadingSettings
-                                      ? null
-                                      : () async {
-                                          final ok = await telemetry
-                                              .saveSettings(
-                                                _sLoc / 100.0,
-                                                _sSoc / 100.0,
-                                                _sDig / 100.0,
-                                              );
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  ok
-                                                      ? 'Configuration Saved ✓'
-                                                      : 'Failed to save',
-                                                  style: GoogleFonts.outfit(),
-                                                ),
-                                                backgroundColor: ok
-                                                    ? const Color(
-                                                        0xFF00E676,
-                                                      ).withAlpha(200)
-                                                    : const Color(0xFFFF5252),
-                                                behavior:
-                                                    SnackBarBehavior.floating,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        },
-                                  child: Center(
-                                    child: telemetry.isLoadingSettings
-                                        ? const SizedBox(
-                                            height: 20,
-                                            width: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: FateColors.primary,
-                                            ),
-                                          )
-                                        : Text(
-                                            'Save Parameters',
-                                            style: GoogleFonts.outfit(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 14,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                              ),
+                width: double.infinity,
+                height: 48,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: FateColors.heroGradient,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () {
+                        telemetry.saveSettings(
+                          _sLoc / 100.0,
+                          _sSoc / 100.0,
+                          _sDig / 100.0,
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Configuration Saved ✓',
+                              style: GoogleFonts.outfit(),
+                            ),
+                            backgroundColor:
+                                const Color(0xFF00E676).withAlpha(200),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
+                        );
+                      },
+                      child: Center(
+                        child: Text(
+                          'Save Parameters',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
                         ],
                       ),
                     ),
@@ -270,6 +242,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           await Permission.ignoreBatteryOptimizations.request();
                         }
                       },
+                    ),
+                    const SizedBox(height: 40),
+
+                    // ── Security ──
+                    const SectionHeader(
+                      title: 'Security',
+                      icon: Icons.lock_outline_rounded,
+                    ),
+                    GlassCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: ListTile(
+                        leading: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            gradient: FateColors.warmGradient,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.lock_rounded, color: Colors.white, size: 20),
+                        ),
+                        title: Text(
+                          'Lock App Vault',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w700,
+                            color: FateColors.textPrimary,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Require PIN to access app',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: FateColors.textSecondary,
+                          ),
+                        ),
+                        trailing: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: FateColors.primary.withAlpha(40),
+                            foregroundColor: FateColors.primary,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () {
+                            if (!telemetry.isPinSet) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Please set a PIN in onboarding first.')),
+                              );
+                              return;
+                            }
+                            telemetry.lockSession();
+                          },
+                          child: Text(
+                            'Lock',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 40),
                   ]),

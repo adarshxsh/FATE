@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart';
@@ -185,6 +186,35 @@ class SecureDbService {
       scoreData,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  // ─── PIN Security ───
+
+  static const _pinKey = 'fate_security_pin_hash';
+  static const _pinSaltKey = 'fate_security_pin_salt';
+
+  /// Hashes and stores the user's PIN using SHA-256 + a random salt.
+  Future<void> storePin(String pin) async {
+    final random = Random.secure();
+    final saltBytes = List<int>.generate(16, (_) => random.nextInt(256));
+    final salt = base64Url.encode(saltBytes);
+    final hash = _hashPin(pin, salt);
+    await _storage.write(key: _pinKey, value: hash);
+    await _storage.write(key: _pinSaltKey, value: salt);
+    debugPrint('[SecureDB] PIN stored (SHA-256 + salt).');
+  }
+
+  /// Returns true if the provided PIN matches the stored hash.
+  Future<bool> verifyPin(String pin) async {
+    final storedHash = await _storage.read(key: _pinKey);
+    final salt = await _storage.read(key: _pinSaltKey);
+    if (storedHash == null || salt == null) return false;
+    return _hashPin(pin, salt) == storedHash;
+  }
+
+  String _hashPin(String pin, String salt) {
+    final bytes = utf8.encode('$salt:$pin');
+    return sha256.convert(bytes).toString();
   }
 
   // ─── Garbage Collection ───
