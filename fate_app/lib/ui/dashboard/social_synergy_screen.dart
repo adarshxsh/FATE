@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../logic/rssi_ranging.dart';
 import '../../logic/telemetry_provider.dart';
 import '../theme.dart';
 
@@ -163,8 +164,10 @@ class SocialSynergyScreen extends StatelessWidget {
                         (info?['display_name'] as String?) ?? entry.value;
                     final peerCas = (info?['cas'] as num?)?.toDouble();
                     final isExcluded = telemetry.isFriend(bleId);
-                    final distance = distances[endpointId] ?? 5.0;
-                    final isClose = distance < 2.0;
+                    // Null until a BLE RSSI estimate exists for this peer.
+                    final distance = distances[endpointId];
+                    final band = telemetry.bandFor(endpointId);
+                    final isClose = band == ProximityBand.immediate;
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -234,7 +237,7 @@ class SocialSynergyScreen extends StatelessWidget {
                                             ),
                                           ),
                                           child: Text(
-                                            'CLOSE',
+                                            '< 1 m',
                                             style: GoogleFonts.outfit(
                                               color: Colors.white,
                                               fontSize: 9,
@@ -248,7 +251,7 @@ class SocialSynergyScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${distance.toStringAsFixed(1)}m · '
+                                    '${_bandLabel(band, distance)} · '
                                     '${peerCas != null ? "CAS ${peerCas.toStringAsFixed(0)} · " : (info?['known'] == false ? "Not on FATE · " : "")}'
                                     '${isExcluded ? "Excluded" : "Active"}',
                                     style: GoogleFonts.outfit(
@@ -377,5 +380,21 @@ class _CampusPulseCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+
+/// BLE RSSI is good to about a band, not to centimetres, so the band leads
+/// and the metre figure is marked approximate.
+String _bandLabel(ProximityBand band, double? metres) {
+  switch (band) {
+    case ProximityBand.immediate:
+      return 'Right next to you (~${metres!.toStringAsFixed(1)}m)';
+    case ProximityBand.near:
+      return 'Near (~${metres!.toStringAsFixed(1)}m)';
+    case ProximityBand.far:
+      return 'Same area (~${metres!.toStringAsFixed(0)}m)';
+    case ProximityBand.unknown:
+      return 'Distance pending';
   }
 }

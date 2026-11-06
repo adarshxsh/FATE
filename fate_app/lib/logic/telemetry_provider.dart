@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'community_service.dart';
 import 'notification_service.dart';
+import 'rssi_ranging.dart';
 import 'secure_db_service.dart';
 import 'scoring_engine.dart';
 
@@ -56,6 +57,14 @@ class TelemetryProvider extends ChangeNotifier {
   // Nearby endpointIds are ephemeral (new on every discovery); the BLE id in
   // the advertised name is the stable identity. Map one to the other.
   final Map<String, String> _endpointToBle = {};
+
+  // BLE RSSI ranging, keyed by BLE id (see rssi_ranging.dart).
+  final PeerRangingTable _ranging = PeerRangingTable();
+  final Set<String> _alertedUnknown = {};
+  // Seconds each peer spent within RssiRanging.nearMaxM, plus the time of
+  // the last reading (to integrate between sightings).
+  final Map<String, double> _closeSeconds = {};
+  final Map<String, DateTime> _lastRangeAt = {};
 
   // ── Community (server) state ──
   final CommunityService _community = CommunityService();
@@ -151,7 +160,14 @@ class TelemetryProvider extends ChangeNotifier {
 
   List<String> get connectedPeers => _nearbyDevices.values.toList();
   Map<String, String> get nearbyDevicesMap => Map.unmodifiable(_nearbyDevices);
+  /// Distance in metres per visible endpoint. Only peers with a fresh BLE
+  /// RSSI estimate appear here. No entry means the distance is unknown.
   Map<String, double> get peerDistances => Map.unmodifiable(_peerDistances);
+
+  ProximityBand bandFor(String endpointId) =>
+      RssiRanging.bandFor(_peerDistances[endpointId]);
+  double? smoothedRssiFor(String endpointId) =>
+      _ranging.smoothedRssi(bleIdFor(endpointId));
   Set<String> get localFriends => Set.unmodifiable(_localFriends);
   List<String> get privacyLogs => _privacyLogs;
   List<Map<String, dynamic>> get notificationLog => _notificationLog;
@@ -665,7 +681,8 @@ class TelemetryProvider extends ChangeNotifier {
         case 'peer_found':
           final endpointId = data['endpointId'] ?? 'unknown_id';
           final rawName = data['name'] ?? 'Unknown';
-          final distance = (data['distance'] as num?)?.toDouble() ?? 5.0;
+          // Distance comes from BLE RSSI (ble_rssi events), if we already
+          // have a fresh reading for this peer.
 
           // P2P: BLE payload format is "<bleId>|<deviceModel>"
           String peerBleId = rawName;
@@ -682,13 +699,19 @@ class TelemetryProvider extends ChangeNotifier {
           }
           _endpointToBle[endpointId] = peerBleId;
           _nearbyDevices[endpointId] = fallbackDeviceName;
+          final distance = _ranging.distanceOf(peerBleId);
           if (!_peerInfo.containsKey(peerBleId)) {
             unawaited(_lookupPeer(peerBleId));
           }
-          _peerDistances[endpointId] = distance;
+          if (distance != null) {
+            _peerDistances[endpointId] = distance;
+          } else {
+            _peerDistances.remove(endpointId);
+          }
 
-          // Alert for unknown devices
-          if (!isFriend(peerBleId)) {
+          // Alert for unknown devices: once per peer per session, not on
+          // every rediscovery.
+          if (!isFriend(peerBleId) && _alertedUnknown.add(peerBleId)) {
             LocalNotificationService.showUnknownDeviceAlert(
               fallbackDeviceName,
               distance,
@@ -701,9 +724,8 @@ class TelemetryProvider extends ChangeNotifier {
             'distance': distance,
           });
           _recalculateLocalScore();
-          final proximityLabel = distance < 2.0 ? 'CLOSE (Within 2m)' : 'NEAR';
           _addLog(
-            'PROX | $proximityLabel | $peerBleId at ${distance.toStringAsFixed(1)}m',
+            'PROX | Found $peerBleId${distance != null ? " at ~${distance.toStringAsFixed(1)}m (BLE)" : " (distance pending BLE)"}',
           );
           notifyListeners();
           break;
@@ -714,10 +736,16 @@ class TelemetryProvider extends ChangeNotifier {
             final peerBleId = bleIdFor(endpointId);
             final foundAt = _peerFoundTimestamps[endpointId];
             if (foundAt != null) {
-              final durationSeconds = DateTime.now()
+              final rawSeconds = DateTime.now()
                   .difference(foundAt)
                   .inSeconds;
               _peerFoundTimestamps.remove(endpointId);
+              // With BLE ranging, only time spent within ~3 m is engagement
+              // (Nearby discovery alone reaches tens of metres). Without any
+              // RSSI data, fall back to the found→lost window.
+              final close = _closeSeconds.remove(peerBleId);
+              _lastRangeAt.remove(peerBleId);
+              final durationSeconds = close != null ? close.round() : rawSeconds;
               // Friends are excluded from contagion scoring (see Social tab).
               if (durationSeconds > 60 && !isFriend(peerBleId)) {
                 // peer_cas_at_time stays NULL (ignored by scoring) until the
@@ -736,6 +764,7 @@ class TelemetryProvider extends ChangeNotifier {
               }
             }
             _endpointToBle.remove(endpointId);
+            _ranging.forget(peerBleId);
             _nearbyDevices.remove(endpointId);
             _peerDistances.remove(endpointId);
             if (_nearbyPeers > 0) _nearbyPeers--;
@@ -743,6 +772,33 @@ class TelemetryProvider extends ChangeNotifier {
           _db.insertProximityLog({'nearby_peers': _nearbyPeers});
           _recalculateLocalScore();
           notifyListeners();
+          break;
+
+        case 'ble_rssi':
+          final bleId = data['bleId'] as String?;
+          final rssi = (data['rssi'] as num?)?.toInt();
+          final p1m = (data['measuredPower'] as num?)?.toInt() ?? -59;
+          if (bleId == null || rssi == null) break;
+          final d = _ranging.addReading(bleId, rssi, p1m);
+          if (d == null) break;
+          // Integrate "close" time between sightings. Gaps over 5 s
+          // are capped so a missed scan window doesn't count as contact.
+          final now = DateTime.now();
+          final prev = _lastRangeAt[bleId];
+          _lastRangeAt[bleId] = now;
+          _closeSeconds.putIfAbsent(bleId, () => 0.0);
+          if (prev != null && d <= RssiRanging.nearMaxM) {
+            final dt = now.difference(prev).inMilliseconds / 1000.0;
+            _closeSeconds[bleId] = _closeSeconds[bleId]! + dt.clamp(0.0, 5.0);
+          }
+          var touched = false;
+          _endpointToBle.forEach((endpoint, b) {
+            if (b == bleId) {
+              _peerDistances[endpoint] = d;
+              touched = true;
+            }
+          });
+          if (touched) notifyListeners();
           break;
 
         case 'app_usage':

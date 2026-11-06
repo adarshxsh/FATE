@@ -11,11 +11,13 @@ import com.google.android.gms.nearby.connection.Strategy
 class ProximityTelemetryManager(private val context: Context) {
         private val SERVICE_ID = "com.example.fate_app.SERVICE_ID"
         private var currentUserName: String = android.os.Build.MODEL
+        private val ranging = BleRangingManager(context)
 
         fun startDiscovery(userName: String? = null) {
                 val model = android.os.Build.MODEL
                 currentUserName = if (userName != null) "$userName|$model" else "Unknown|$model"
                 startAdvertising() // Be discoverable while searching
+                ranging.start(userName) // userName is the app's 16-hex bleId
                 val discoveryOptions =
                         DiscoveryOptions.Builder().setStrategy(Strategy.P2P_STAR).build()
 
@@ -27,28 +29,18 @@ class ProximityTelemetryManager(private val context: Context) {
                                                 endpointId: String,
                                                 info: DiscoveredEndpointInfo
                                         ) {
-                                                // RSSI is not directly available in standard Nearby
-                                                // Connections discovery,
-                                                // but we can estimate it or categorize it if using
-                                                // BLE.
-                                                // Simulated distance logic
-                                                // Real RSSI distance logic: 10^((MeasuredPower -
-                                                // RSSI) / (10 * N))
-                                                val estimatedDistance =
-                                                        (0.5 + Math.random() * 4.5).let {
-                                                                Math.round(it * 10.0) / 10.0
-                                                        }
-
+                                                // Nearby exposes no RSSI. Distance comes from the
+                                                // BLE beacon (BleRangingManager -> "ble_rssi"),
+                                                // never a placeholder.
                                                 Log.d(
                                                         "FATE_Telemetry",
-                                                        "Found peer: $endpointId (${info.endpointName}) at ~${estimatedDistance}m"
+                                                        "Found peer: $endpointId (${info.endpointName})"
                                                 )
                                                 TelemetryEventBus.emitEvent(
                                                         "peer_found",
                                                         mapOf(
                                                                 "endpointId" to endpointId,
-                                                                "name" to info.endpointName,
-                                                                "distance" to estimatedDistance
+                                                                "name" to info.endpointName
                                                         )
                                                 )
                                         }
