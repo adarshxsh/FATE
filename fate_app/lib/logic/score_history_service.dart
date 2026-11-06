@@ -6,7 +6,7 @@ import 'secure_db_service.dart';
 import 'scoring_engine.dart';
 
 /// Stores and manages CAS snapshots locally.
-/// 
+///
 /// Every 5 minutes the ScoreHistoryService recalculates CAS from local DB
 /// and stores the snapshot in SharedPreferences. At end of day,
 /// compresses into a daily average. After 7 daily averages, into a weekly.
@@ -34,7 +34,10 @@ class ScoreHistoryService extends ChangeNotifier {
   double currentSDig = 0.0;
 
   void syncRealtimeScores(double cas, double loc, double soc, double dig) {
-    if (cas != currentCAS || loc != currentSLoc || soc != currentSSoc || dig != currentSDig) {
+    if (cas != currentCAS ||
+        loc != currentSLoc ||
+        soc != currentSSoc ||
+        dig != currentSDig) {
       currentCAS = cas;
       currentSLoc = loc;
       currentSSoc = soc;
@@ -78,16 +81,12 @@ class ScoreHistoryService extends ChangeNotifier {
     // Immediately fetch once
     fetchAndStore(isBackground: false);
 
-    // Then tick every 1 second
-    _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (secondsUntilNextAnalysis > 0) {
-        secondsUntilNextAnalysis--;
-        notifyListeners();
-      } else {
-        // Time to fetch!
-        fetchAndStore(isBackground: false);
-      }
-    });
+    // Every 5 minutes. (This used to tick each second just to drive an
+    // on-screen countdown, and every tick rebuilt the whole dashboard.)
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 300),
+      (_) => fetchAndStore(isBackground: false),
+    );
     debugPrint("[ScoreHistory] Polling countdown started");
   }
 
@@ -132,7 +131,8 @@ class ScoreHistoryService extends ChangeNotifier {
           _serverNotifications.insert(0, {
             'type': 'warning',
             'title': '📉 Focus Dip Detected',
-            'body': 'Your concentration dropped by ${drop.toStringAsFixed(1)} points recently.',
+            'body':
+                'Your concentration dropped by ${drop.toStringAsFixed(1)} points recently.',
             'icon': 'trending_down',
             'time': DateTime.now().toIso8601String(),
             'cas': currentCAS,
@@ -164,10 +164,7 @@ class ScoreHistoryService extends ChangeNotifier {
       _maybeGarbageCollect();
       notifyListeners();
 
-      debugPrint(
-        "[ScoreHistory] Local Analysis: CAS=$currentCAS stored",
-      );
-
+      debugPrint("[ScoreHistory] Local Analysis: CAS=$currentCAS stored");
     } catch (e) {
       debugPrint("[ScoreHistory] Local analysis failed: $e");
     }

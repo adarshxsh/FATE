@@ -16,21 +16,8 @@ class TimelineScreen extends StatelessWidget {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          SliverAppBar(
-            expandedHeight: 100,
-            floating: true,
-            pinned: false,
-            backgroundColor: Colors.transparent,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-              title: Text(
-                'Analysis',
-                style: GoogleFonts.outfit(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
+          FateSliverHeader(
+            title: 'Trends',
             actions: [
               Container(
                 margin: const EdgeInsets.only(right: 16),
@@ -237,8 +224,8 @@ class TimelineScreen extends StatelessWidget {
   ) {
     final isPositive = value >= 0;
     final color = isPositive
-        ? const Color(0xFF00E676)
-        : const Color(0xFFFF5252);
+        ? const Color(0xFF4ADE80)
+        : const Color(0xFFF87171);
 
     return GlassCard(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),

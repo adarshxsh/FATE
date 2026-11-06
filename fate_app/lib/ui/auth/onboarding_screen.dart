@@ -64,9 +64,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     if (mounted) {
       // Go to PIN setup screen
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const PinScreen(mode: PinMode.setup),
-        ),
+        MaterialPageRoute(builder: (_) => const PinScreen(mode: PinMode.setup)),
       );
     }
   }
@@ -99,7 +97,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     padding: const EdgeInsets.only(top: 20, bottom: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(3, (i) => _dot(i == _currentPage)),
+                      children: List.generate(
+                        3,
+                        (i) => _dot(i == _currentPage),
+                      ),
                     ),
                   ),
 
@@ -266,7 +267,11 @@ class _PrivacyPage extends StatelessWidget {
                   gradient: FateColors.coolGradient,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.shield_rounded, color: Colors.white, size: 26),
+                child: const Icon(
+                  Icons.shield_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
               const SizedBox(width: 16),
               Text(
@@ -282,11 +287,27 @@ class _PrivacyPage extends StatelessWidget {
           const SizedBox(height: 32),
 
           ...[
-            ('📍', 'Location', 'Tracks campus zones — stored encrypted on device'),
-            ('📱', 'App Usage', 'Monitors app switching — never leaves your phone'),
-            ('🔔', 'Notifications', 'Measures focus disruptions — zero content stored'),
+            (
+              '📍',
+              'Location',
+              'Tracks campus zones — stored encrypted on device',
+            ),
+            (
+              '📱',
+              'App Usage',
+              'Monitors app switching — never leaves your phone',
+            ),
+            (
+              '🔔',
+              'Notifications',
+              'Measures focus disruptions — zero content stored',
+            ),
             ('📡', 'Bluetooth', 'Detects nearby focus peers — local P2P only'),
-            ('🔐', 'Encryption', 'AES-256 SQLCipher — hardware-backed key storage'),
+            (
+              '🔐',
+              'Encryption',
+              'AES-256 SQLCipher — hardware-backed key storage',
+            ),
           ].map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 16),
@@ -404,8 +425,11 @@ class _NamePage extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded,
-                    color: FateColors.primary, size: 18),
+                const Icon(
+                  Icons.info_outline_rounded,
+                  color: FateColors.primary,
+                  size: 18,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(

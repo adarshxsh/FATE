@@ -17,21 +17,8 @@ class DataPrivacyScreen extends StatelessWidget {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          SliverAppBar(
-            expandedHeight: 100,
-            floating: true,
-            pinned: false,
-            backgroundColor: Colors.transparent,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-              title: Text(
-                'Data & Privacy',
-                style: GoogleFonts.outfit(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
+          FateSliverHeader(
+            title: 'Data & Privacy',
             actions: [
               Container(
                 margin: const EdgeInsets.only(right: 16),
@@ -167,8 +154,9 @@ class DataPrivacyScreen extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: FateColors.scoreColor(telemetry.focusScore)
-                                  .withAlpha(25),
+                              color: FateColors.scoreColor(
+                                telemetry.focusScore,
+                              ).withAlpha(25),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -177,7 +165,8 @@ class DataPrivacyScreen extends StatelessWidget {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: FateColors.scoreColor(
-                                    telemetry.focusScore),
+                                  telemetry.focusScore,
+                                ),
                               ),
                             ),
                           ),
@@ -202,10 +191,7 @@ class DataPrivacyScreen extends StatelessWidget {
                         Icons.phone_android_rounded,
                       ),
                       const SizedBox(height: 12),
-                      Divider(
-                        color: Colors.white.withAlpha(10),
-                        height: 1,
-                      ),
+                      Divider(color: Colors.white.withAlpha(10), height: 1),
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -359,10 +345,10 @@ class DataPrivacyScreen extends StatelessWidget {
             fontSize: 13,
             fontWeight: FontWeight.w700,
             color: value > 0
-                ? const Color(0xFF00E676)
+                ? const Color(0xFF4ADE80)
                 : value < 0
-                    ? const Color(0xFFFF5252)
-                    : FateColors.textMuted,
+                ? const Color(0xFFF87171)
+                : FateColors.textMuted,
           ),
         ),
       ],
@@ -384,16 +370,12 @@ class DataPrivacyScreen extends StatelessWidget {
         ),
         Text(
           label,
-          style: GoogleFonts.outfit(
-            fontSize: 10,
-            color: FateColors.textMuted,
-          ),
+          style: GoogleFonts.outfit(fontSize: 10, color: FateColors.textMuted),
         ),
       ],
     );
   }
 }
-
 
 /// What leaves the phone, and the switches that control it.
 class _CommunityPrivacyCard extends StatelessWidget {
@@ -427,10 +409,15 @@ class _CommunityPrivacyCard extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             value: telemetry.communityEnabled,
             onChanged: telemetry.setCommunityEnabled,
-            title: Text('Share scores with campus', style: GoogleFonts.outfit(fontSize: 13)),
+            title: Text(
+              'Share scores with campus',
+              style: GoogleFonts.outfit(fontSize: 13),
+            ),
             subtitle: Text(
               telemetry.communityEnabled
-                  ? (telemetry.communityOnline ? 'Connected' : 'Offline, will retry')
+                  ? (telemetry.communityOnline
+                        ? 'Connected'
+                        : 'Offline, will retry')
                   : 'Off: social contagion uses no peer data',
               style: small(FateColors.textMuted),
             ),
@@ -438,8 +425,13 @@ class _CommunityPrivacyCard extends StatelessWidget {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: telemetry.shareZone,
-            onChanged: telemetry.communityEnabled ? telemetry.setShareZone : null,
-            title: Text('Include current zone', style: GoogleFonts.outfit(fontSize: 13)),
+            onChanged: telemetry.communityEnabled
+                ? telemetry.setShareZone
+                : null,
+            title: Text(
+              'Include current zone',
+              style: GoogleFonts.outfit(fontSize: 13),
+            ),
             subtitle: Text(
               'Zone name only (e.g. LHC), never GPS. Zones with <3 people are hidden.',
               style: small(FateColors.textMuted),
@@ -450,15 +442,21 @@ class _CommunityPrivacyCard extends StatelessWidget {
             child: TextButton.icon(
               icon: const Icon(Icons.delete_forever_rounded, size: 18),
               label: const Text('Erase my data from server'),
-              style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF5252)),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFF87171),
+              ),
               onPressed: () async {
                 final ok = await telemetry.deleteCommunityData();
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(ok
-                      ? 'Server data erased. Sharing turned off.'
-                      : 'Could not reach server. Try again when online.'),
-                ));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      ok
+                          ? 'Server data erased. Sharing turned off.'
+                          : 'Could not reach server. Try again when online.',
+                    ),
+                  ),
+                );
               },
             ),
           ),

@@ -68,7 +68,8 @@ class TelemetryProvider extends ChangeNotifier {
 
   // ── Community (server) state ──
   final CommunityService _community = CommunityService();
-  final Map<String, Map<String, dynamic>> _peerInfo = {}; // bleId -> {cas, display_name, known}
+  final Map<String, Map<String, dynamic>> _peerInfo =
+      {}; // bleId -> {cas, display_name, known}
   Map<String, dynamic>? _campus;
   DateTime? _lastCommunitySync;
   bool _communityOnline = false;
@@ -160,6 +161,7 @@ class TelemetryProvider extends ChangeNotifier {
 
   List<String> get connectedPeers => _nearbyDevices.values.toList();
   Map<String, String> get nearbyDevicesMap => Map.unmodifiable(_nearbyDevices);
+
   /// Distance in metres per visible endpoint. Only peers with a fresh BLE
   /// RSSI estimate appear here. No entry means the distance is unknown.
   Map<String, double> get peerDistances => Map.unmodifiable(_peerDistances);
@@ -187,7 +189,8 @@ class TelemetryProvider extends ChangeNotifier {
   bool isFriend(String bleId) => _localFriends.contains(bleId);
 
   /// Stable BLE id for a currently-visible endpoint (falls back to endpointId).
-  String bleIdFor(String endpointId) => _endpointToBle[endpointId] ?? endpointId;
+  String bleIdFor(String endpointId) =>
+      _endpointToBle[endpointId] ?? endpointId;
 
   /// Server-side info for a peer: {known, display_name, cas}. Null until looked up.
   Map<String, dynamic>? peerInfo(String bleId) => _peerInfo[bleId];
@@ -315,7 +318,11 @@ class TelemetryProvider extends ChangeNotifier {
   /// engagements (getting each peer's real CAS back), and refreshes the
   /// campus view. Safe to call any time; no-ops while one is in flight.
   Future<void> syncWithCommunity() async {
-    if (_syncing || !_communityEnabled || _localId == null || _bluetoothId == null) return;
+    if (_syncing ||
+        !_communityEnabled ||
+        _localId == null ||
+        _bluetoothId == null)
+      return;
     _syncing = true;
     try {
       final registered = await _community.ensureRegistered(
@@ -366,7 +373,9 @@ class TelemetryProvider extends ChangeNotifier {
       await _db.markEngagementSynced(row['id'] as int, peerCas);
       if (peerCas != null) {
         changed = true;
-        _addLog('CONTAGION | ${row['peer_ble_id']} CAS ${peerCas.toStringAsFixed(0)} → ${res['effect']}');
+        _addLog(
+          'CONTAGION | ${row['peer_ble_id']} CAS ${peerCas.toStringAsFixed(0)} → ${res['effect']}',
+        );
       }
     }
     return changed;
@@ -399,8 +408,9 @@ class TelemetryProvider extends ChangeNotifier {
   Future<void> _loadSessionData() async {
     try {
       final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day)
-              .millisecondsSinceEpoch / 1000.0;
+      final startOfDay =
+          DateTime(now.year, now.month, now.day).millisecondsSinceEpoch /
+          1000.0;
 
       // 1. Load session app usage from digital_logs
       final dLogs = await _db.getLogs(
@@ -413,10 +423,11 @@ class TelemetryProvider extends ChangeNotifier {
         final pkg = log['package_name'] as String?;
         final durationMs = (log['duration_ms'] as num?)?.toInt() ?? 10000;
         if (pkg != null && pkg != 'unknown') {
-          _appUsageStats[pkg] = (_appUsageStats[pkg] ?? 0) + (durationMs ~/ 1000);
+          _appUsageStats[pkg] =
+              (_appUsageStats[pkg] ?? 0) + (durationMs ~/ 1000);
         }
       }
-      
+
       // Also fetch total usage from OS
       await _refreshAppUsageFromOS();
 
@@ -431,7 +442,9 @@ class TelemetryProvider extends ChangeNotifier {
           'title': content.length > 30 ? content.substring(0, 30) : content,
           'text': content,
           'time': DateTime.fromMillisecondsSinceEpoch(ts).toIso8601String(),
-          'status': n['response_time_seconds'] != null ? 'clicked' : 'dismissed',
+          'status': n['response_time_seconds'] != null
+              ? 'clicked'
+              : 'dismissed',
         });
       }
 
@@ -439,7 +452,8 @@ class TelemetryProvider extends ChangeNotifier {
       _privacyLogs.clear();
       // Add app usage entries
       _appUsageStats.forEach((pkg, secs) {
-        if (secs > 60) { // only show apps used > 1 min
+        if (secs > 60) {
+          // only show apps used > 1 min
           final mins = secs ~/ 60;
           _privacyLogs.add('[TODAY] USG | $pkg → ${mins}m foreground');
         }
@@ -448,22 +462,34 @@ class TelemetryProvider extends ChangeNotifier {
       for (final n in nLogs.take(10)) {
         final ts = ((n['timestamp'] as num) * 1000).toInt();
         final dt = DateTime.fromMillisecondsSinceEpoch(ts);
-        final timeStr = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+        final timeStr =
+            '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
         final content = n['content'] as String? ?? '';
-        _privacyLogs.add('[$timeStr] NOTIF | ${content.length > 40 ? content.substring(0, 40) : content}');
+        _privacyLogs.add(
+          '[$timeStr] NOTIF | ${content.length > 40 ? content.substring(0, 40) : content}',
+        );
       }
 
       // 4. Load proximity data
-      final pLogs = await _db.getLogs('proximity_logs', limit: 5,
-          where: 'timestamp >= ?', whereArgs: [startOfDay]);
+      final pLogs = await _db.getLogs(
+        'proximity_logs',
+        limit: 5,
+        where: 'timestamp >= ?',
+        whereArgs: [startOfDay],
+      );
       if (pLogs.isNotEmpty) {
-        _nearbyPeers = (pLogs.first['nearby_peers_count'] as num?)?.toInt() ?? 0;
+        _nearbyPeers =
+            (pLogs.first['nearby_peers_count'] as num?)?.toInt() ?? 0;
         _privacyLogs.add('[TODAY] PROX | $_nearbyPeers peers detected today');
       }
 
       // 5. Add location data
-      final lLogs = await _db.getLogs('location_logs', limit: 5,
-          where: 'timestamp >= ?', whereArgs: [startOfDay]);
+      final lLogs = await _db.getLogs(
+        'location_logs',
+        limit: 5,
+        where: 'timestamp >= ?',
+        whereArgs: [startOfDay],
+      );
       for (final l in lLogs) {
         final zone = l['mapped_zone'] as String? ?? 'Unknown';
         final periods = l['periods_count'] as int? ?? 1;
@@ -621,7 +647,7 @@ class TelemetryProvider extends ChangeNotifier {
 
         case 'notification_removed':
           final removedPkg = data['package'] ?? 'unknown';
-          
+
           if (_pendingNotifications.containsKey(removedPkg)) {
             final notifData = _pendingNotifications.remove(removedPkg)!;
             final content = '${notifData['title']} ${notifData['text']}';
@@ -736,16 +762,16 @@ class TelemetryProvider extends ChangeNotifier {
             final peerBleId = bleIdFor(endpointId);
             final foundAt = _peerFoundTimestamps[endpointId];
             if (foundAt != null) {
-              final rawSeconds = DateTime.now()
-                  .difference(foundAt)
-                  .inSeconds;
+              final rawSeconds = DateTime.now().difference(foundAt).inSeconds;
               _peerFoundTimestamps.remove(endpointId);
               // With BLE ranging, only time spent within ~3 m is engagement
               // (Nearby discovery alone reaches tens of metres). Without any
               // RSSI data, fall back to the found→lost window.
               final close = _closeSeconds.remove(peerBleId);
               _lastRangeAt.remove(peerBleId);
-              final durationSeconds = close != null ? close.round() : rawSeconds;
+              final durationSeconds = close != null
+                  ? close.round()
+                  : rawSeconds;
               // Friends are excluded from contagion scoring (see Social tab).
               if (durationSeconds > 60 && !isFriend(peerBleId)) {
                 // peer_cas_at_time stays NULL (ignored by scoring) until the

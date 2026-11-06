@@ -95,8 +95,9 @@ class PeerRangingTable {
     if (last != null && _now().difference(last) > RssiRanging.staleAfter) {
       _filters.remove(bleId);
     }
-    final smoothed =
-        _filters.putIfAbsent(bleId, () => RssiKalman()).update(rssi.toDouble());
+    final smoothed = _filters
+        .putIfAbsent(bleId, () => RssiKalman())
+        .update(rssi.toDouble());
     _measuredPower[bleId] = measuredPowerAt1m;
     _lastSeen[bleId] = _now();
     return RssiRanging.distanceFromRssi(smoothed, measuredPowerAt1m);

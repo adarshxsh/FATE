@@ -142,10 +142,12 @@ class _PinScreenState extends State<PinScreen>
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  FateColors.primary.withAlpha(30),
-                  FateColors.primary.withAlpha(0),
-                ]),
+                gradient: RadialGradient(
+                  colors: [
+                    FateColors.primary.withAlpha(30),
+                    FateColors.primary.withAlpha(0),
+                  ],
+                ),
               ),
             ),
           ),
@@ -191,7 +193,9 @@ class _PinScreenState extends State<PinScreen>
                   _isError ? '❌ Incorrect — try again' : _subtitle,
                   style: GoogleFonts.outfit(
                     fontSize: 13,
-                    color: _isError ? const Color(0xFFFF5252) : FateColors.textSecondary,
+                    color: _isError
+                        ? const Color(0xFFF87171)
+                        : FateColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -201,9 +205,10 @@ class _PinScreenState extends State<PinScreen>
                   animation: _shakeCtrl,
                   builder: (context, child) {
                     final offset = _isError
-                        ? 8.0 * (_shakeCtrl.value < 0.5
-                            ? _shakeCtrl.value * 2
-                            : (1 - _shakeCtrl.value) * 2)
+                        ? 8.0 *
+                              (_shakeCtrl.value < 0.5
+                                  ? _shakeCtrl.value * 2
+                                  : (1 - _shakeCtrl.value) * 2)
                         : 0.0;
                     return Transform.translate(
                       offset: Offset(offset * 6 * (_shakeCtrl.value - 0.5), 0),
@@ -223,8 +228,8 @@ class _PinScreenState extends State<PinScreen>
                           shape: BoxShape.circle,
                           color: filled
                               ? (_isError
-                                  ? const Color(0xFFFF5252)
-                                  : FateColors.primary)
+                                    ? const Color(0xFFF87171)
+                                    : FateColors.primary)
                               : Colors.white.withAlpha(20),
                           border: Border.all(
                             color: filled

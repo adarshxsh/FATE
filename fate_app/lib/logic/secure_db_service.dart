@@ -45,10 +45,16 @@ class SecureDbService {
         if (oldVersion < 2) {
           // v2: engagements are keyed by the peer's stable BLE id (not the
           // ephemeral Nearby endpointId) and queued for server sync.
-          await db.execute('ALTER TABLE engagement_logs ADD COLUMN peer_ble_id TEXT');
-          await db.execute('ALTER TABLE engagement_logs ADD COLUMN synced INTEGER DEFAULT 0');
+          await db.execute(
+            'ALTER TABLE engagement_logs ADD COLUMN peer_ble_id TEXT',
+          );
+          await db.execute(
+            'ALTER TABLE engagement_logs ADD COLUMN synced INTEGER DEFAULT 0',
+          );
           // Old rows carry a hardcoded 50.0 peer CAS, not a measurement.
-          await db.execute('UPDATE engagement_logs SET peer_cas_at_time = NULL, synced = 1');
+          await db.execute(
+            'UPDATE engagement_logs SET peer_cas_at_time = NULL, synced = 1',
+          );
         }
       },
       onCreate: (db, version) async {
@@ -117,7 +123,7 @@ class SecureDbService {
             digital_score REAL
           )
         ''');
-        
+
         debugPrint("[SecureDB] Encrypted database tables created.");
       },
     );
@@ -204,7 +210,12 @@ class SecureDbService {
 
   // ─── Retrieval Methods ───
 
-  Future<List<Map<String, dynamic>>> getLogs(String table, {int? limit, String? where, List<dynamic>? whereArgs}) async {
+  Future<List<Map<String, dynamic>>> getLogs(
+    String table, {
+    int? limit,
+    String? where,
+    List<dynamic>? whereArgs,
+  }) async {
     final db = await database;
     return await db.query(
       table,
@@ -257,15 +268,16 @@ class SecureDbService {
 
   Future<int> runGarbageCollection() async {
     final db = await database;
-    final cutoff = (DateTime.now().millisecondsSinceEpoch / 1000.0) - 86400; // 24h ago
-    
+    final cutoff =
+        (DateTime.now().millisecondsSinceEpoch / 1000.0) - 86400; // 24h ago
+
     int totalDeleted = 0;
     final tables = [
       'location_logs',
       'digital_logs',
       'proximity_logs',
       'notification_logs',
-      'engagement_logs'
+      'engagement_logs',
     ];
 
     for (var table in tables) {
@@ -279,11 +291,15 @@ class SecureDbService {
           whereArgs: [cutoff, cutoff - 86400],
         );
       } else {
-        deleted = await db.delete(table, where: 'timestamp < ?', whereArgs: [cutoff]);
+        deleted = await db.delete(
+          table,
+          where: 'timestamp < ?',
+          whereArgs: [cutoff],
+        );
       }
       totalDeleted += deleted;
     }
-    
+
     debugPrint("[SecureDB] GC deleted $totalDeleted rows older than 24h.");
     return totalDeleted;
   }

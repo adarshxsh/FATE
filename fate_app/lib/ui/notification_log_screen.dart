@@ -18,21 +18,8 @@ class NotificationLogScreen extends StatelessWidget {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          SliverAppBar(
-            expandedHeight: 100,
-            floating: true,
-            pinned: false,
-            backgroundColor: Colors.transparent,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-              title: Text(
-                'Insights',
-                style: GoogleFonts.outfit(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
+          FateSliverHeader(
+            title: 'Notifications',
             actions: [
               Container(
                 margin: const EdgeInsets.only(right: 16),
@@ -151,7 +138,7 @@ class NotificationLogScreen extends StatelessWidget {
     LinearGradient iconGradient;
     switch (type) {
       case 'success':
-        typeColor = const Color(0xFF00E676);
+        typeColor = const Color(0xFF4ADE80);
         typeIcon = Icons.check_circle_rounded;
         iconGradient = FateColors.coolGradient;
         break;

@@ -10,7 +10,10 @@ void main() {
     });
     test('every 10*n dB of extra loss is 10x distance', () {
       const n = RssiRanging.pathLossExponent;
-      expect(RssiRanging.distanceFromRssi(-59 - 10 * n, -59), closeTo(10.0, 1e-9));
+      expect(
+        RssiRanging.distanceFromRssi(-59 - 10 * n, -59),
+        closeTo(10.0, 1e-9),
+      );
     });
     test('monotonic: weaker signal means farther', () {
       final a = RssiRanging.distanceFromRssi(-60, -59);
@@ -61,10 +64,15 @@ void main() {
       }
       double variance(List<double> xs) {
         final m = xs.reduce((a, b) => a + b) / xs.length;
-        return xs.map((x) => (x - m) * (x - m)).reduce((a, b) => a + b) / xs.length;
+        return xs.map((x) => (x - m) * (x - m)).reduce((a, b) => a + b) /
+            xs.length;
       }
+
       expect(k.value!, closeTo(-72, 2.5));
-      expect(variance(filt.sublist(50)), lessThan(variance(raw.sublist(50)) / 4));
+      expect(
+        variance(filt.sublist(50)),
+        lessThan(variance(raw.sublist(50)) / 4),
+      );
     });
     test('tracks a real step change (someone walks away)', () {
       final k = RssiKalman();

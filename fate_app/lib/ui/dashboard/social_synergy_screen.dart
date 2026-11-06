@@ -19,22 +19,7 @@ class SocialSynergyScreen extends StatelessWidget {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          SliverAppBar(
-            expandedHeight: 100,
-            floating: true,
-            pinned: false,
-            backgroundColor: Colors.transparent,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-              title: Text(
-                'Social Synergy',
-                style: GoogleFonts.outfit(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
+          FateSliverHeader(title: 'People'),
 
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -79,7 +64,7 @@ class SocialSynergyScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                             '${telemetry.localFriends.length} excluded from scoring',
+                              '${telemetry.localFriends.length} excluded from scoring',
                               style: GoogleFonts.outfit(
                                 color: FateColors.textSecondary,
                                 fontSize: 12,
@@ -257,7 +242,7 @@ class SocialSynergyScreen extends StatelessWidget {
                                     style: GoogleFonts.outfit(
                                       color: isExcluded
                                           ? FateColors.textMuted
-                                          : const Color(0xFF00E676),
+                                          : const Color(0xFF4ADE80),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -266,9 +251,9 @@ class SocialSynergyScreen extends StatelessWidget {
                             ),
                             Switch(
                               value: !isExcluded,
-                              activeThumbColor: const Color(0xFF00E676),
+                              activeThumbColor: const Color(0xFF4ADE80),
                               activeTrackColor: const Color(
-                                0xFF00E676,
+                                0xFF4ADE80,
                               ).withAlpha(60),
                               inactiveTrackColor: Colors.white.withAlpha(15),
                               inactiveThumbColor: FateColors.textMuted,
@@ -296,7 +281,6 @@ class SocialSynergyScreen extends StatelessWidget {
   }
 }
 
-
 /// Campus-wide view from the community server.
 class _CampusPulseCard extends StatelessWidget {
   final TelemetryProvider telemetry;
@@ -308,17 +292,20 @@ class _CampusPulseCard extends StatelessWidget {
     TextStyle label() =>
         GoogleFonts.outfit(fontSize: 11, color: FateColors.textMuted);
     TextStyle value() => GoogleFonts.outfit(
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-          color: FateColors.textPrimary,
-        );
+      fontSize: 18,
+      fontWeight: FontWeight.w800,
+      color: FateColors.textPrimary,
+    );
 
     Widget stat(String v, String l) => Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [Text(v, style: value()), Text(l, style: label())],
-          ),
-        );
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(v, style: value()),
+          Text(l, style: label()),
+        ],
+      ),
+    );
 
     if (c == null) {
       return GlassCard(
@@ -351,38 +338,66 @@ class _CampusPulseCard extends StatelessWidget {
         children: [
           Text(
             'Campus Pulse · last 24h',
-            style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700),
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 12),
-          Row(children: [
-            stat('${c['active_members'] ?? 0}', 'active members'),
-            stat(c['avg_cas'] != null ? '${c['avg_cas']}' : '–', 'campus avg CAS'),
-            stat(pct != null ? 'top ${(100 - (pct as num)).toStringAsFixed(0)}%' : '–', 'your rank'),
-          ]),
+          Row(
+            children: [
+              stat('${c['active_members'] ?? 0}', 'active members'),
+              stat(
+                c['avg_cas'] != null ? '${c['avg_cas']}' : '–',
+                'campus avg CAS',
+              ),
+              stat(
+                pct != null
+                    ? 'top ${(100 - (pct as num)).toStringAsFixed(0)}%'
+                    : '–',
+                'your rank',
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
-          Row(children: [
-            stat('${eng['positive'] ?? 0}', 'focus-lifting contacts'),
-            stat('${eng['negative'] ?? 0}', 'focus-draining contacts'),
-            stat('${eng['my_minutes'] ?? 0}m', 'your peer time'),
-          ]),
+          Row(
+            children: [
+              stat('${eng['positive'] ?? 0}', 'focus-lifting contacts'),
+              stat('${eng['negative'] ?? 0}', 'focus-draining contacts'),
+              stat('${eng['my_minutes'] ?? 0}m', 'your peer time'),
+            ],
+          ),
           if (zones.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text('Focus by zone', style: label()),
             const SizedBox(height: 6),
-            ...zones.take(5).map((z) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(children: [
-                    Expanded(child: Text('${z['zone']}', style: GoogleFonts.outfit(fontSize: 12))),
-                    Text('${z['avg_cas']} · ${z['members']} ppl', style: label()),
-                  ]),
-                )),
+            ...zones
+                .take(5)
+                .map(
+                  (z) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${z['zone']}',
+                            style: GoogleFonts.outfit(fontSize: 12),
+                          ),
+                        ),
+                        Text(
+                          '${z['avg_cas']} · ${z['members']} ppl',
+                          style: label(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
           ],
         ],
       ),
     );
   }
 }
-
 
 /// BLE RSSI is good to about a band, not to centimetres, so the band leads
 /// and the metre figure is marked approximate.
