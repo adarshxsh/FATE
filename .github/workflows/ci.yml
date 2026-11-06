@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main, ver.2, "feat/**"]
+  pull_request:
+
+jobs:
+  server:
+    name: Server (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fate_server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"   # matches Render
+          cache: pip
+          cache-dependency-path: fate_server/requirements.txt
+      - run: pip install -r requirements.txt pytest httpx
+      - run: pytest -q test_community.py
+
+  server-postgres:
+    name: Server against Postgres
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fate
+          POSTGRES_PASSWORD: fate
+          POSTGRES_DB: fate
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fate" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: fate_server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: fate_server/requirements.txt
+      - run: pip install -r requirements.txt pytest httpx
+      # Boot the real app against Postgres to catch dialect issues SQLite hides.
+      - name: Smoke test on Postgres
+        env:
+          DATABASE_URL: postgres://fate:fate@localhost:5432/fate
+        run: |
+          python - <<'PY'
+          from fastapi.testclient import TestClient
+          from main import app
+          c = TestClient(app)
+          assert c.get("/healthz").json() == {"ok": True}
+          r = c.post("/api/v2/register", json={"local_id": "ci-local-1", "bluetooth_id": "cible01"})
+          assert r.status_code == 201, r.text
+          h = {"Authorization": f"Bearer {r.json()['token']}"}
+          assert c.post("/api/v2/scores", headers=h, json={"cas": 70, "s_loc": 0, "s_soc": 0, "s_dig": 60, "zone": "LHC"}).status_code == 200
+          body = c.get("/api/v2/community", headers=h).json()
+          assert body["active_members"] == 1 and body["my_cas"] == 70, body
+          print("postgres smoke OK")
+          PY
+
+  app:
+    name: App (analyze + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fate_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.7"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test

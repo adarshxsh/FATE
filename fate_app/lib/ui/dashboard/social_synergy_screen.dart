@@ -92,6 +92,9 @@ class SocialSynergyScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                _CampusPulseCard(telemetry: telemetry),
                 const SizedBox(height: 24),
 
                 // Info header
@@ -152,8 +155,14 @@ class SocialSynergyScreen extends StatelessWidget {
                 else
                   ...devices.entries.map((entry) {
                     final endpointId = entry.key;
-                    final peerName = entry.value;
-                    final isExcluded = telemetry.isFriend(endpointId);
+                    // Friends are keyed by the stable BLE id, not the
+                    // per-discovery endpointId, so the choice survives.
+                    final bleId = telemetry.bleIdFor(endpointId);
+                    final info = telemetry.peerInfo(bleId);
+                    final peerName =
+                        (info?['display_name'] as String?) ?? entry.value;
+                    final peerCas = (info?['cas'] as num?)?.toDouble();
+                    final isExcluded = telemetry.isFriend(bleId);
                     final distance = distances[endpointId] ?? 5.0;
                     final isClose = distance < 2.0;
 
@@ -239,7 +248,9 @@ class SocialSynergyScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${distance.toStringAsFixed(1)}m · ${isExcluded ? "Excluded" : "Active"}',
+                                    '${distance.toStringAsFixed(1)}m · '
+                                    '${peerCas != null ? "CAS ${peerCas.toStringAsFixed(0)} · " : (info?['known'] == false ? "Not on FATE · " : "")}'
+                                    '${isExcluded ? "Excluded" : "Active"}',
                                     style: GoogleFonts.outfit(
                                       color: isExcluded
                                           ? FateColors.textMuted
@@ -260,9 +271,9 @@ class SocialSynergyScreen extends StatelessWidget {
                               inactiveThumbColor: FateColors.textMuted,
                               onChanged: (countThisPeer) {
                                 if (countThisPeer) {
-                                  telemetry.removeLocalFriend(endpointId);
+                                  telemetry.removeLocalFriend(bleId);
                                 } else {
-                                  telemetry.addLocalFriend(endpointId);
+                                  telemetry.addLocalFriend(bleId);
                                 }
                               },
                             ),
@@ -276,6 +287,93 @@ class SocialSynergyScreen extends StatelessWidget {
               ]),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// Campus-wide view from the community server.
+class _CampusPulseCard extends StatelessWidget {
+  final TelemetryProvider telemetry;
+  const _CampusPulseCard({required this.telemetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = telemetry.campus;
+    TextStyle label() =>
+        GoogleFonts.outfit(fontSize: 11, color: FateColors.textMuted);
+    TextStyle value() => GoogleFonts.outfit(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          color: FateColors.textPrimary,
+        );
+
+    Widget stat(String v, String l) => Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [Text(v, style: value()), Text(l, style: label())],
+          ),
+        );
+
+    if (c == null) {
+      return GlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_off_rounded, color: FateColors.textMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                telemetry.communityEnabled
+                    ? 'Campus pulse loads once connected to the FATE server.'
+                    : 'Community sharing is off (Data tab).',
+                style: label(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final eng = (c['engagements'] as Map?) ?? {};
+    final zones = (c['zones'] as List?) ?? [];
+    final pct = c['my_percentile'];
+    return GlassCard(
+      borderGradient: FateColors.purpleGradient,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Campus Pulse · last 24h',
+            style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Row(children: [
+            stat('${c['active_members'] ?? 0}', 'active members'),
+            stat(c['avg_cas'] != null ? '${c['avg_cas']}' : '–', 'campus avg CAS'),
+            stat(pct != null ? 'top ${(100 - (pct as num)).toStringAsFixed(0)}%' : '–', 'your rank'),
+          ]),
+          const SizedBox(height: 12),
+          Row(children: [
+            stat('${eng['positive'] ?? 0}', 'focus-lifting contacts'),
+            stat('${eng['negative'] ?? 0}', 'focus-draining contacts'),
+            stat('${eng['my_minutes'] ?? 0}m', 'your peer time'),
+          ]),
+          if (zones.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text('Focus by zone', style: label()),
+            const SizedBox(height: 6),
+            ...zones.take(5).map((z) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(children: [
+                    Expanded(child: Text('${z['zone']}', style: GoogleFonts.outfit(fontSize: 12))),
+                    Text('${z['avg_cas']} · ${z['members']} ppl', style: label()),
+                  ]),
+                )),
+          ],
         ],
       ),
     );

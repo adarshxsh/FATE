@@ -232,6 +232,10 @@ class DataPrivacyScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
+                // ─── Community sharing controls ───
+                _CommunityPrivacyCard(telemetry: telemetry),
+                const SizedBox(height: 20),
+
                 SectionHeader(
                   title: 'Secure Vault Log',
                   badge: '${logs.length} entries',
@@ -386,6 +390,80 @@ class DataPrivacyScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+
+/// What leaves the phone, and the switches that control it.
+class _CommunityPrivacyCard extends StatelessWidget {
+  final TelemetryProvider telemetry;
+  const _CommunityPrivacyCard({required this.telemetry});
+
+  @override
+  Widget build(BuildContext context) {
+    TextStyle small(Color c) => GoogleFonts.outfit(fontSize: 11, color: c);
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Community Sharing',
+            style: GoogleFonts.outfit(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: FateColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Raw logs never leave this device. When on, only your CAS and '
+            'sub-scores, plus "near peer X for N min", are sent so peers can '
+            'see each other\'s focus and the campus view can be computed.',
+            style: small(FateColors.textSecondary),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: telemetry.communityEnabled,
+            onChanged: telemetry.setCommunityEnabled,
+            title: Text('Share scores with campus', style: GoogleFonts.outfit(fontSize: 13)),
+            subtitle: Text(
+              telemetry.communityEnabled
+                  ? (telemetry.communityOnline ? 'Connected' : 'Offline, will retry')
+                  : 'Off: social contagion uses no peer data',
+              style: small(FateColors.textMuted),
+            ),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: telemetry.shareZone,
+            onChanged: telemetry.communityEnabled ? telemetry.setShareZone : null,
+            title: Text('Include current zone', style: GoogleFonts.outfit(fontSize: 13)),
+            subtitle: Text(
+              'Zone name only (e.g. LHC), never GPS. Zones with <3 people are hidden.',
+              style: small(FateColors.textMuted),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              icon: const Icon(Icons.delete_forever_rounded, size: 18),
+              label: const Text('Erase my data from server'),
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF5252)),
+              onPressed: () async {
+                final ok = await telemetry.deleteCommunityData();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(ok
+                      ? 'Server data erased. Sharing turned off.'
+                      : 'Could not reach server. Try again when online.'),
+                ));
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -7,3 +7,7 @@ fate_server/core/__pycache__/
 fate_app/android/app/google-services.json
 fate_app/pubspec.lock
 .DS_Store
+
+# local venvs
+fate_server/venv/
+.venv/

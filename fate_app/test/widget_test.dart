@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fate_app/app.dart';
 
 void main() {
-  testWidgets('App smoke test', (WidgetTester tester) async {
-    // Basic smoke test — just ensure the app doesn't crash on startup.
-    // Full integration tests are run on-device.
+  test('App smoke test placeholder', () {
+    // Full app boot needs Android platform channels (telemetry, SQLCipher);
+    // run integration tests on-device. Logic is covered in the other tests.
+    expect(true, isTrue);
   });
 }

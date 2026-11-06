@@ -40,7 +40,17 @@ class SecureDbService {
     return await openDatabase(
       path,
       password: encryptionKey,
-      version: 1,
+      version: 2,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // v2: engagements are keyed by the peer's stable BLE id (not the
+          // ephemeral Nearby endpointId) and queued for server sync.
+          await db.execute('ALTER TABLE engagement_logs ADD COLUMN peer_ble_id TEXT');
+          await db.execute('ALTER TABLE engagement_logs ADD COLUMN synced INTEGER DEFAULT 0');
+          // Old rows carry a hardcoded 50.0 peer CAS, not a measurement.
+          await db.execute('UPDATE engagement_logs SET peer_cas_at_time = NULL, synced = 1');
+        }
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE location_logs (
@@ -91,7 +101,9 @@ class SecureDbService {
             peer_device_id TEXT,
             timestamp REAL,
             engagement_duration_seconds REAL,
-            peer_cas_at_time REAL
+            peer_cas_at_time REAL,
+            peer_ble_id TEXT,
+            synced INTEGER DEFAULT 0
           )
         ''');
 
@@ -160,10 +172,34 @@ class SecureDbService {
     final db = await database;
     await db.insert('engagement_logs', {
       'peer_device_id': data['peer_device_id'],
+      'peer_ble_id': data['peer_ble_id'],
       'timestamp': DateTime.now().millisecondsSinceEpoch / 1000.0,
       'engagement_duration_seconds': data['engagement_duration_seconds'],
       'peer_cas_at_time': data['peer_cas_at_time'],
+      'synced': 0,
     });
+  }
+
+  /// Engagements not yet reported to the community server.
+  Future<List<Map<String, dynamic>>> getUnsyncedEngagements() async {
+    final db = await database;
+    return db.query(
+      'engagement_logs',
+      where: 'synced = 0 AND peer_ble_id IS NOT NULL',
+      orderBy: 'timestamp ASC',
+      limit: 50,
+    );
+  }
+
+  /// Marks an engagement synced and stores the peer CAS the server measured.
+  Future<void> markEngagementSynced(int id, double? peerCas) async {
+    final db = await database;
+    await db.update(
+      'engagement_logs',
+      {'synced': 1, 'peer_cas_at_time': peerCas},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ─── Retrieval Methods ───
@@ -233,7 +269,18 @@ class SecureDbService {
     ];
 
     for (var table in tables) {
-      int deleted = await db.delete(table, where: 'timestamp < ?', whereArgs: [cutoff]);
+      int deleted;
+      if (table == 'engagement_logs') {
+        // Keep unsynced engagements up to 48h (the server's replay window)
+        // so a day offline doesn't silently drop contagion data.
+        deleted = await db.delete(
+          table,
+          where: 'timestamp < ? AND (synced = 1 OR timestamp < ?)',
+          whereArgs: [cutoff, cutoff - 86400],
+        );
+      } else {
+        deleted = await db.delete(table, where: 'timestamp < ?', whereArgs: [cutoff]);
+      }
       totalDeleted += deleted;
     }
     

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -5,11 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'community_service.dart';
 import 'notification_service.dart';
 import 'secure_db_service.dart';
 import 'scoring_engine.dart';
 
-/// Manages all device telemetry and state — fully offline, no server dependency.
+/// Manages all device telemetry and state.
+///
+/// Raw telemetry is local-only (encrypted SQLite). The community server is
+/// used for the parts one phone can't compute alone: a nearby peer's CAS
+/// (social contagion) and campus-wide aggregates. All of it degrades to
+/// local-only when offline.
 ///
 /// Identity lifecycle:
 ///   1. First launch → generate local UUID + BLE advertising ID
@@ -45,6 +52,21 @@ class TelemetryProvider extends ChangeNotifier {
   final Map<String, DateTime> _peerFoundTimestamps = {};
   final Set<String> _localFriends =
       {}; // Device BLE IDs marked as friends (stored locally)
+
+  // Nearby endpointIds are ephemeral (new on every discovery); the BLE id in
+  // the advertised name is the stable identity. Map one to the other.
+  final Map<String, String> _endpointToBle = {};
+
+  // ── Community (server) state ──
+  final CommunityService _community = CommunityService();
+  final Map<String, Map<String, dynamic>> _peerInfo = {}; // bleId -> {cas, display_name, known}
+  Map<String, dynamic>? _campus;
+  DateTime? _lastCommunitySync;
+  bool _communityOnline = false;
+  bool _shareZone = false;
+  bool _communityEnabled = true;
+  Timer? _syncTimer;
+  bool _syncing = false;
 
   // ── Notification interaction tracking ──
   final Map<String, Map<String, dynamic>> _pendingNotifications = {};
@@ -96,7 +118,15 @@ class TelemetryProvider extends ChangeNotifier {
     _spatialWeight = prefs.getDouble('weight_spatial') ?? 0.3;
     _socialWeight = prefs.getDouble('weight_social') ?? 0.3;
     _digitalWeight = prefs.getDouble('weight_digital') ?? 0.4;
+    _shareZone = prefs.getBool('share_zone_with_campus') ?? false;
+    _communityEnabled = prefs.getBool('community_enabled') ?? true;
     _loadLocalFriends();
+  }
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    super.dispose();
   }
 
   // ── Getters ──
@@ -140,6 +170,35 @@ class TelemetryProvider extends ChangeNotifier {
 
   bool isFriend(String bleId) => _localFriends.contains(bleId);
 
+  /// Stable BLE id for a currently-visible endpoint (falls back to endpointId).
+  String bleIdFor(String endpointId) => _endpointToBle[endpointId] ?? endpointId;
+
+  /// Server-side info for a peer: {known, display_name, cas}. Null until looked up.
+  Map<String, dynamic>? peerInfo(String bleId) => _peerInfo[bleId];
+
+  Map<String, dynamic>? get campus => _campus;
+  DateTime? get lastCommunitySync => _lastCommunitySync;
+  bool get communityOnline => _communityOnline;
+  bool get shareZone => _shareZone;
+  bool get communityEnabled => _communityEnabled;
+
+  /// Opt in/out of the community server. Opting out stops all uploads;
+  /// local scoring keeps working (contagion just has no peer data).
+  Future<void> setCommunityEnabled(bool value) async {
+    _communityEnabled = value;
+    await prefs.setBool('community_enabled', value);
+    _addLog('PRIVACY | Community sync ${value ? "ON" : "OFF"}');
+    notifyListeners();
+    if (value) unawaited(syncWithCommunity());
+  }
+
+  Future<void> setShareZone(bool value) async {
+    _shareZone = value;
+    await prefs.setBool('share_zone_with_campus', value);
+    _addLog('PRIVACY | Zone sharing with campus ${value ? "ON" : "OFF"}');
+    notifyListeners();
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // IDENTITY CREATION (Phase 0 → onboarding)
   // ══════════════════════════════════════════════════════════════════════
@@ -166,6 +225,7 @@ class TelemetryProvider extends ChangeNotifier {
 
     _addLog('IDENTITY | Created local UUID identity: $_localId');
     notifyListeners();
+    unawaited(syncWithCommunity());
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -222,6 +282,101 @@ class TelemetryProvider extends ChangeNotifier {
 
     await _loadSessionData();
     await _recalculateLocalScore();
+
+    unawaited(syncWithCommunity());
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(
+      const Duration(minutes: 5),
+      (_) => syncWithCommunity(),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // COMMUNITY SYNC
+  // ══════════════════════════════════════════════════════════════════════
+
+  /// Registers (once), publishes the current score, flushes queued
+  /// engagements (getting each peer's real CAS back), and refreshes the
+  /// campus view. Safe to call any time; no-ops while one is in flight.
+  Future<void> syncWithCommunity() async {
+    if (_syncing || !_communityEnabled || _localId == null || _bluetoothId == null) return;
+    _syncing = true;
+    try {
+      final registered = await _community.ensureRegistered(
+        localId: _localId!,
+        bluetoothId: _bluetoothId!,
+        displayName: _displayName,
+      );
+      if (!registered) {
+        _communityOnline = false;
+        return;
+      }
+
+      final published = await _community.publishScore(
+        cas: _focusScore,
+        sLoc: _sLoc,
+        sSoc: _sSoc,
+        sDig: _sDig,
+        zone: _shareZone && _currentZone != null ? _currentZone : null,
+      );
+      _communityOnline = published;
+      if (!published) return;
+
+      final changed = await _flushEngagements();
+      if (changed) await _recalculateLocalScore();
+
+      final campus = await _community.fetchCommunity();
+      if (campus != null) {
+        _campus = campus;
+        _lastCommunitySync = DateTime.now();
+      }
+    } finally {
+      _syncing = false;
+      notifyListeners();
+    }
+  }
+
+  /// Returns true if any engagement got a real peer CAS (score must be redone).
+  Future<bool> _flushEngagements() async {
+    var changed = false;
+    for (final row in await _db.getUnsyncedEngagements()) {
+      final res = await _community.reportEngagement(
+        peerBluetoothId: row['peer_ble_id'] as String,
+        durationSeconds: (row['engagement_duration_seconds'] as num).toDouble(),
+        endedAt: (row['timestamp'] as num).toDouble(),
+      );
+      if (res == null) break; // offline: keep the rest queued
+      final peerCas = (res['peer_cas'] as num?)?.toDouble();
+      await _db.markEngagementSynced(row['id'] as int, peerCas);
+      if (peerCas != null) {
+        changed = true;
+        _addLog('CONTAGION | ${row['peer_ble_id']} CAS ${peerCas.toStringAsFixed(0)} → ${res['effect']}');
+      }
+    }
+    return changed;
+  }
+
+  Future<void> _lookupPeer(String bleId) async {
+    final info = await _community.lookupPeer(bleId);
+    if (info == null) return;
+    _peerInfo[bleId] = info;
+    notifyListeners();
+  }
+
+  /// Erases this device's server-side data (local data is untouched) and
+  /// turns community sync off so the next tick doesn't re-register.
+  Future<bool> deleteCommunityData() async {
+    final ok = await _community.deleteRemoteData();
+    if (ok) {
+      _communityEnabled = false;
+      await prefs.setBool('community_enabled', false);
+      _campus = null;
+      _communityOnline = false;
+      _peerInfo.clear();
+      _addLog('PRIVACY | Community data erased from server');
+      notifyListeners();
+    }
+    return ok;
   }
 
   /// Loads today's tracked data from encrypted DB into memory for UI display.
@@ -525,7 +680,11 @@ class TelemetryProvider extends ChangeNotifier {
             _nearbyPeers++;
             _peerFoundTimestamps[endpointId] = DateTime.now();
           }
+          _endpointToBle[endpointId] = peerBleId;
           _nearbyDevices[endpointId] = fallbackDeviceName;
+          if (!_peerInfo.containsKey(peerBleId)) {
+            unawaited(_lookupPeer(peerBleId));
+          }
           _peerDistances[endpointId] = distance;
 
           // Alert for unknown devices
@@ -552,23 +711,31 @@ class TelemetryProvider extends ChangeNotifier {
         case 'peer_lost':
           final endpointId = data['endpointId'] ?? 'unknown_id';
           if (_nearbyDevices.containsKey(endpointId)) {
+            final peerBleId = bleIdFor(endpointId);
             final foundAt = _peerFoundTimestamps[endpointId];
             if (foundAt != null) {
               final durationSeconds = DateTime.now()
                   .difference(foundAt)
                   .inSeconds;
               _peerFoundTimestamps.remove(endpointId);
-              if (durationSeconds > 60) {
-                _db.insertEngagementLog({
-                  'peer_device_id': endpointId,
-                  'engagement_duration_seconds': durationSeconds.toDouble(),
-                  'peer_cas_at_time': 50.0,
-                });
+              // Friends are excluded from contagion scoring (see Social tab).
+              if (durationSeconds > 60 && !isFriend(peerBleId)) {
+                // peer_cas_at_time stays NULL (ignored by scoring) until the
+                // server returns the peer's real CAS for this moment.
+                _db
+                    .insertEngagementLog({
+                      'peer_device_id': endpointId,
+                      'peer_ble_id': peerBleId,
+                      'engagement_duration_seconds': durationSeconds.toDouble(),
+                      'peer_cas_at_time': null,
+                    })
+                    .then((_) => syncWithCommunity());
                 _addLog(
-                  'ENG_SECURE | Vaulted engagement: $endpointId | ${durationSeconds}s',
+                  'ENG_SECURE | Vaulted engagement: $peerBleId | ${durationSeconds}s',
                 );
               }
             }
+            _endpointToBle.remove(endpointId);
             _nearbyDevices.remove(endpointId);
             _peerDistances.remove(endpointId);
             if (_nearbyPeers > 0) _nearbyPeers--;
