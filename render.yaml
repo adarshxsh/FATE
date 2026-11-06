@@ -1,11 +1,27 @@
+# Render Blueprint: provisions Postgres + the API and wires DATABASE_URL
+# between them, so no credentials ever live in this file.
+# Deploy: Render dashboard → New → Blueprint → pick this repo/branch.
+databases:
+  - name: fate-db
+    plan: free            # free Postgres expires after 30 days; switch to basic-256mb to keep it
+    databaseName: fate
+    user: fate
+
 services:
   - type: web
-    name: fate-telemetry-server
-    env: python
-    buildCommand: "pip install -r fate_server/requirements.txt"
-    startCommand: "cd fate_server && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    name: fate-server
+    runtime: python
+    plan: free
+    rootDir: fate_server
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.11.9
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: fate-db
+          property: connectionString
+      - key: ENABLE_LEGACY_API
+        value: "false"

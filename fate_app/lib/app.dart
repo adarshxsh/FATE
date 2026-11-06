@@ -3,7 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'ui/main_screen.dart';
-import 'ui/auth/login_screen.dart';
+import 'ui/auth/onboarding_screen.dart';
+import 'ui/auth/pin_screen.dart';
 import 'ui/theme.dart';
 import 'logic/telemetry_provider.dart';
 
@@ -49,9 +50,22 @@ class FateApp extends StatelessWidget {
           margin: EdgeInsets.zero,
         ),
       ),
-      home: context.watch<TelemetryProvider>().userId == null
-          ? const LoginScreen()
-          : const MainScreen(),
+      home: Consumer<TelemetryProvider>(
+        builder: (context, telemetry, _) {
+          // Phase 0: No identity yet → show onboarding
+          if (!telemetry.isIdentityCreated) {
+            return const OnboardingScreen();
+          }
+
+          // Phase 6: PIN set but session not yet unlocked → PIN entry
+          if (telemetry.isPinSet && !telemetry.isUnlocked) {
+            return const PinScreen(mode: PinMode.verify);
+          }
+
+          // Ready → main dashboard
+          return const MainScreen();
+        },
+      ),
     );
   }
 }

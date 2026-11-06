@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../logic/rssi_ranging.dart';
 import '../../logic/telemetry_provider.dart';
 import '../theme.dart';
 
@@ -18,22 +19,7 @@ class SocialSynergyScreen extends StatelessWidget {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          SliverAppBar(
-            expandedHeight: 100,
-            floating: true,
-            pinned: false,
-            backgroundColor: Colors.transparent,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-              title: Text(
-                'Social Synergy',
-                style: GoogleFonts.outfit(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
+          FateSliverHeader(title: 'People'),
 
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -78,7 +64,7 @@ class SocialSynergyScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${telemetry.closeFriends.length} excluded from scoring',
+                              '${telemetry.localFriends.length} excluded from scoring',
                               style: GoogleFonts.outfit(
                                 color: FateColors.textSecondary,
                                 fontSize: 12,
@@ -92,6 +78,9 @@ class SocialSynergyScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                _CampusPulseCard(telemetry: telemetry),
                 const SizedBox(height: 24),
 
                 // Info header
@@ -152,10 +141,18 @@ class SocialSynergyScreen extends StatelessWidget {
                 else
                   ...devices.entries.map((entry) {
                     final endpointId = entry.key;
-                    final peerName = entry.value;
-                    final isExcluded = telemetry.isFriend(endpointId);
-                    final distance = distances[endpointId] ?? 5.0;
-                    final isClose = distance < 2.0;
+                    // Friends are keyed by the stable BLE id, not the
+                    // per-discovery endpointId, so the choice survives.
+                    final bleId = telemetry.bleIdFor(endpointId);
+                    final info = telemetry.peerInfo(bleId);
+                    final peerName =
+                        (info?['display_name'] as String?) ?? entry.value;
+                    final peerCas = (info?['cas'] as num?)?.toDouble();
+                    final isExcluded = telemetry.isFriend(bleId);
+                    // Null until a BLE RSSI estimate exists for this peer.
+                    final distance = distances[endpointId];
+                    final band = telemetry.bandFor(endpointId);
+                    final isClose = band == ProximityBand.immediate;
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -225,7 +222,7 @@ class SocialSynergyScreen extends StatelessWidget {
                                             ),
                                           ),
                                           child: Text(
-                                            'CLOSE',
+                                            '< 1 m',
                                             style: GoogleFonts.outfit(
                                               color: Colors.white,
                                               fontSize: 9,
@@ -239,11 +236,13 @@ class SocialSynergyScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${distance.toStringAsFixed(1)}m · ${isExcluded ? "Excluded" : "Active"}',
+                                    '${_bandLabel(band, distance)} · '
+                                    '${peerCas != null ? "CAS ${peerCas.toStringAsFixed(0)} · " : (info?['known'] == false ? "Not on FATE · " : "")}'
+                                    '${isExcluded ? "Excluded" : "Active"}',
                                     style: GoogleFonts.outfit(
                                       color: isExcluded
                                           ? FateColors.textMuted
-                                          : const Color(0xFF00E676),
+                                          : const Color(0xFF4ADE80),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -252,17 +251,17 @@ class SocialSynergyScreen extends StatelessWidget {
                             ),
                             Switch(
                               value: !isExcluded,
-                              activeThumbColor: const Color(0xFF00E676),
+                              activeThumbColor: const Color(0xFF4ADE80),
                               activeTrackColor: const Color(
-                                0xFF00E676,
+                                0xFF4ADE80,
                               ).withAlpha(60),
                               inactiveTrackColor: Colors.white.withAlpha(15),
                               inactiveThumbColor: FateColors.textMuted,
                               onChanged: (countThisPeer) {
                                 if (countThisPeer) {
-                                  telemetry.removeFriend(endpointId);
+                                  telemetry.removeLocalFriend(bleId);
                                 } else {
-                                  telemetry.addFriend(endpointId);
+                                  telemetry.addLocalFriend(bleId);
                                 }
                               },
                             ),
@@ -279,5 +278,138 @@ class SocialSynergyScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Campus-wide view from the community server.
+class _CampusPulseCard extends StatelessWidget {
+  final TelemetryProvider telemetry;
+  const _CampusPulseCard({required this.telemetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = telemetry.campus;
+    TextStyle label() =>
+        GoogleFonts.outfit(fontSize: 11, color: FateColors.textMuted);
+    TextStyle value() => GoogleFonts.outfit(
+      fontSize: 18,
+      fontWeight: FontWeight.w800,
+      color: FateColors.textPrimary,
+    );
+
+    Widget stat(String v, String l) => Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(v, style: value()),
+          Text(l, style: label()),
+        ],
+      ),
+    );
+
+    if (c == null) {
+      return GlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_off_rounded, color: FateColors.textMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                telemetry.communityEnabled
+                    ? 'Campus pulse loads once connected to the FATE server.'
+                    : 'Community sharing is off (Data tab).',
+                style: label(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final eng = (c['engagements'] as Map?) ?? {};
+    final zones = (c['zones'] as List?) ?? [];
+    final pct = c['my_percentile'];
+    return GlassCard(
+      borderGradient: FateColors.purpleGradient,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Campus Pulse · last 24h',
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              stat('${c['active_members'] ?? 0}', 'active members'),
+              stat(
+                c['avg_cas'] != null ? '${c['avg_cas']}' : '–',
+                'campus avg CAS',
+              ),
+              stat(
+                pct != null
+                    ? 'top ${(100 - (pct as num)).toStringAsFixed(0)}%'
+                    : '–',
+                'your rank',
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              stat('${eng['positive'] ?? 0}', 'focus-lifting contacts'),
+              stat('${eng['negative'] ?? 0}', 'focus-draining contacts'),
+              stat('${eng['my_minutes'] ?? 0}m', 'your peer time'),
+            ],
+          ),
+          if (zones.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text('Focus by zone', style: label()),
+            const SizedBox(height: 6),
+            ...zones
+                .take(5)
+                .map(
+                  (z) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${z['zone']}',
+                            style: GoogleFonts.outfit(fontSize: 12),
+                          ),
+                        ),
+                        Text(
+                          '${z['avg_cas']} · ${z['members']} ppl',
+                          style: label(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// BLE RSSI is good to about a band, not to centimetres, so the band leads
+/// and the metre figure is marked approximate.
+String _bandLabel(ProximityBand band, double? metres) {
+  switch (band) {
+    case ProximityBand.immediate:
+      return 'Right next to you (~${metres!.toStringAsFixed(1)}m)';
+    case ProximityBand.near:
+      return 'Near (~${metres!.toStringAsFixed(1)}m)';
+    case ProximityBand.far:
+      return 'Same area (~${metres!.toStringAsFixed(0)}m)';
+    case ProximityBand.unknown:
+      return 'Distance pending';
   }
 }

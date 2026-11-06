@@ -60,7 +60,7 @@ class LocalNotificationService {
   /// Uses alarm-level importance with sound + vibration.
   static Future<void> showUnknownDeviceAlert(
     String deviceName,
-    double distance,
+    double? distance,
   ) async {
     final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
@@ -87,7 +87,7 @@ class LocalNotificationService {
       id: 9000 + DateTime.now().millisecond,
       title: '⚠️ Unknown Device Detected',
       body:
-          '"$deviceName" is ${distance.toStringAsFixed(1)}m away. Unregistered devices near you decrease your attention score.',
+          '"$deviceName" is ${distance != null ? "~${distance.toStringAsFixed(1)}m away" : "nearby"}. Unregistered devices near you decrease your attention score.',
       notificationDetails: details,
     );
   }

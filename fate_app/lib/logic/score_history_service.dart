@@ -2,13 +2,14 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'api_service.dart';
-import 'notification_service.dart';
-import 'package:http/http.dart' as http;
+import 'secure_db_service.dart';
+import 'scoring_engine.dart';
 
-/// Polls the server every 5 minutes for a fresh CAS snapshot.
-/// Stores snapshots locally. At end of day, compresses into daily average.
-/// After 7 daily averages, compresses into a weekly average.
+/// Stores and manages CAS snapshots locally.
+///
+/// Every 5 minutes the ScoreHistoryService recalculates CAS from local DB
+/// and stores the snapshot in SharedPreferences. At end of day,
+/// compresses into a daily average. After 7 daily averages, into a weekly.
 ///
 /// Storage format in SharedPreferences:
 ///   "score_snapshots"  → List of 5-min snapshots for TODAY
@@ -16,7 +17,6 @@ import 'package:http/http.dart' as http;
 ///   "score_weekly"     → List of weekly averages (last 4 weeks)
 class ScoreHistoryService extends ChangeNotifier {
   final SharedPreferences prefs;
-  int? userId;
   Timer? _pollTimer;
 
   // Countdown timer state
@@ -27,27 +27,30 @@ class ScoreHistoryService extends ChangeNotifier {
   List<Map<String, dynamic>> _dailyAverages = [];
   List<Map<String, dynamic>> _weeklyAverages = [];
 
-  // Latest snapshot
+  // Latest snapshot (Synced real-time from TelemetryProvider)
   double currentCAS = 50.0;
   double currentSLoc = 0.0;
   double currentSSoc = 0.0;
   double currentSDig = 0.0;
 
+  void syncRealtimeScores(double cas, double loc, double soc, double dig) {
+    if (cas != currentCAS ||
+        loc != currentSLoc ||
+        soc != currentSSoc ||
+        dig != currentSDig) {
+      currentCAS = cas;
+      currentSLoc = loc;
+      currentSSoc = soc;
+      currentSDig = dig;
+      notifyListeners();
+    }
+  }
+
   // Server-pushed insight notifications
   List<Map<String, dynamic>> _serverNotifications = [];
 
-  ScoreHistoryService({required this.prefs, this.userId}) {
+  ScoreHistoryService({required this.prefs}) {
     _loadFromDisk();
-  }
-
-  void updateUserId(int? newId) {
-    if (userId != newId) {
-      userId = newId;
-      notifyListeners();
-      if (userId != null && _pollTimer == null) {
-        startPolling();
-      }
-    }
   }
 
   List<Map<String, dynamic>> get todaySnapshots => _todaySnapshots;
@@ -55,21 +58,35 @@ class ScoreHistoryService extends ChangeNotifier {
   List<Map<String, dynamic>> get weeklyAverages => _weeklyAverages;
   List<Map<String, dynamic>> get serverNotifications => _serverNotifications;
 
-  /// Start the 5-minute polling loop with a 1-second countdown tick
+  /// Called by the WorkManager background dispatcher to store a snapshot
+  /// computed outside the Flutter widget tree (no notifyListeners).
+  void storeBackgroundSnapshot(Map<String, double> data) {
+    final snapshot = {
+      'ts': DateTime.now().toIso8601String(),
+      'CAS': data['CAS'] ?? 50.0,
+      'S_loc': data['S_loc'] ?? 0.0,
+      'S_soc': data['S_soc'] ?? 0.0,
+      'S_dig': data['S_dig'] ?? 0.0,
+    };
+    _todaySnapshots.add(snapshot);
+    if (_todaySnapshots.length > 30) {
+      _todaySnapshots = _todaySnapshots.sublist(_todaySnapshots.length - 30);
+    }
+    _saveToDisk();
+    debugPrint('[ScoreHistory] Background snapshot stored: CAS=${data['CAS']}');
+  }
+
+  /// Start the 5-minute local analysis loop
   void startPolling() {
     // Immediately fetch once
     fetchAndStore(isBackground: false);
 
-    // Then tick every 1 second
-    _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (secondsUntilNextAnalysis > 0) {
-        secondsUntilNextAnalysis--;
-        notifyListeners();
-      } else {
-        // Time to fetch!
-        fetchAndStore(isBackground: false);
-      }
-    });
+    // Every 5 minutes. (This used to tick each second just to drive an
+    // on-screen countdown, and every tick rebuilt the whole dashboard.)
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 300),
+      (_) => fetchAndStore(isBackground: false),
+    );
     debugPrint("[ScoreHistory] Polling countdown started");
   }
 
@@ -84,110 +101,72 @@ class ScoreHistoryService extends ChangeNotifier {
     _pollTimer = null;
   }
 
-  /// Fetch fresh CAS from server, store locally, and reset timer
+  /// Fetch fresh CAS from Local Scoring Engine, store locally, and reset timer
   Future<void> fetchAndStore({bool isBackground = true}) async {
-    if (userId == null) return;
-
     // Reset timer back to 5 minutes
     secondsUntilNextAnalysis = 300;
     notifyListeners();
 
     try {
-      final serverBase = ApiService.baseUrl.replaceAll('/api/ingest', '');
-      final url = Uri.parse('$serverBase/api/analysis/$userId');
-      final response = await http.get(url);
+      final data = await ScoringEngine.calculateDailyCas(DateTime.now());
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      currentCAS = data['CAS'] ?? 50.0;
+      currentSLoc = data['S_loc'] ?? 0.0;
+      currentSSoc = data['S_soc'] ?? 0.0;
+      currentSDig = data['S_dig'] ?? 0.0;
 
-        currentCAS = (data['CAS'] as num).toDouble();
-        currentSLoc = (data['S_loc'] as num).toDouble();
-        currentSSoc = (data['S_soc'] as num).toDouble();
-        currentSDig = (data['S_dig'] as num).toDouble();
+      final snapshot = {
+        'ts': DateTime.now().toIso8601String(),
+        'CAS': currentCAS,
+        'S_loc': currentSLoc,
+        'S_soc': currentSSoc,
+        'S_dig': currentSDig,
+      };
 
-        final snapshot = {
-          'ts': DateTime.now().toIso8601String(),
-          'CAS': currentCAS,
-          'S_loc': currentSLoc,
-          'S_soc': currentSSoc,
-          'S_dig': currentSDig,
-        };
-
-        // Check for drop before adding new snackshot
-        if (_todaySnapshots.isNotEmpty) {
-          final lastCas = (_todaySnapshots.last['CAS'] as num).toDouble();
-          final drop = lastCas - currentCAS;
-          if (drop >= 15.0) {
-            // Significant drop detected
-            _serverNotifications.insert(0, {
-              'type': 'warning',
-              'title': '📉 Focus Dropping!',
-              'body':
-                  'Your attention score fell by ${drop.toStringAsFixed(1)} points. Stay focused!',
-              'icon': 'trending_down',
-              'time': DateTime.now().toIso8601String(),
-              'cas': currentCAS,
-            });
-
-            // Push alert immediately
-            await LocalNotificationService.showAnalysisNotification(
-              currentCAS,
-              insight:
-                  'Your attention score fell by ${drop.toStringAsFixed(1)} points. Stay focused!',
-            );
-          }
+      // Local Insights Calculation
+      if (_todaySnapshots.isNotEmpty) {
+        final lastCas = (_todaySnapshots.last['CAS'] as num).toDouble();
+        final drop = lastCas - currentCAS;
+        if (drop >= 10.0) {
+          _serverNotifications.insert(0, {
+            'type': 'warning',
+            'title': '📉 Focus Dip Detected',
+            'body':
+                'Your concentration dropped by ${drop.toStringAsFixed(1)} points recently.',
+            'icon': 'trending_down',
+            'time': DateTime.now().toIso8601String(),
+            'cas': currentCAS,
+          });
         }
-
-        _todaySnapshots.add(snapshot);
-
-        // Limit to max 10 effectively
-        if (_todaySnapshots.length > 10) {
-          _todaySnapshots = _todaySnapshots.sublist(
-            _todaySnapshots.length - 10,
-          );
-        }
-
-        // Store server-pushed insight notifications
-        final notifications = data['notifications'] as List<dynamic>?;
-        if (notifications != null && notifications.isNotEmpty) {
-          for (final n in notifications) {
-            _serverNotifications.insert(0, {
-              'type': n['type'] ?? 'info',
-              'title': n['title'] ?? '',
-              'body': n['body'] ?? '',
-              'icon': n['icon'] ?? 'info',
-              'time': DateTime.now().toIso8601String(),
-              'cas': currentCAS,
-            });
-          }
-          // Keep only last 50 notifications
-          if (_serverNotifications.length > 50) {
-            _serverNotifications = _serverNotifications.sublist(0, 50);
-          }
-        }
-
-        _saveToDisk();
-        _maybeRollover();
-        notifyListeners();
-
-        debugPrint(
-          "[ScoreHistory] CAS=$currentCAS stored (${_todaySnapshots.length} snapshots, ${_serverNotifications.length} notifs)",
-        );
-
-        String? latestInsight;
-        if (_serverNotifications.isNotEmpty) {
-          latestInsight = _serverNotifications.first['body'];
-        }
-        await LocalNotificationService.initialize(); // Ensure initialized
-        await LocalNotificationService.showAnalysisNotification(
-          currentCAS,
-          insight: latestInsight,
-        );
-
-        _maybeGarbageCollect();
       }
+
+      _todaySnapshots.add(snapshot);
+
+      // Limit snapshots (e.g., last 30 readings)
+      if (_todaySnapshots.length > 30) {
+        _todaySnapshots = _todaySnapshots.sublist(_todaySnapshots.length - 30);
+      }
+
+      // Add a periodic "Good job" insight if score is high
+      if (currentCAS > 80.0 && _todaySnapshots.length % 5 == 0) {
+        _serverNotifications.insert(0, {
+          'type': 'success',
+          'title': '🔥 High Focus Streak',
+          'body': 'You are maintaining legendary focus. Keep it up!',
+          'icon': 'bolt',
+          'time': DateTime.now().toIso8601String(),
+          'cas': currentCAS,
+        });
+      }
+
+      _saveToDisk();
+      _maybeRollover();
+      _maybeGarbageCollect();
+      notifyListeners();
+
+      debugPrint("[ScoreHistory] Local Analysis: CAS=$currentCAS stored");
     } catch (e) {
-      debugPrint("[ScoreHistory] Fetch failed: $e");
+      debugPrint("[ScoreHistory] Local analysis failed: $e");
     }
   }
 
@@ -256,8 +235,9 @@ class ScoreHistoryService extends ChangeNotifier {
   }
 
   Map<String, dynamic> _averageSnapshots(List<Map<String, dynamic>> snapshots) {
-    if (snapshots.isEmpty)
+    if (snapshots.isEmpty) {
       return {'CAS': 0, 'S_loc': 0, 'S_soc': 0, 'S_dig': 0};
+    }
 
     double cas = 0, sLoc = 0, sSoc = 0, sDig = 0;
     for (final s in snapshots) {
@@ -275,18 +255,17 @@ class ScoreHistoryService extends ChangeNotifier {
     };
   }
 
-  /// Trigger server GC once per day
+  /// Trigger DB Garbage Collection once per day
   void _maybeGarbageCollect() async {
     final lastGc = prefs.getString('last_gc_date');
     final today = DateTime.now().toIso8601String().substring(0, 10);
 
-    if (lastGc != today && userId != null) {
+    if (lastGc != today) {
       try {
-        final serverBase = ApiService.baseUrl.replaceAll('/api/ingest', '');
-        final url = Uri.parse('$serverBase/api/gc/$userId');
-        await http.post(url);
+        final db = SecureDbService();
+        await db.runGarbageCollection();
         prefs.setString('last_gc_date', today);
-        debugPrint("[ScoreHistory] Server GC triggered for today");
+        debugPrint("[ScoreHistory] Local Secure DB GC triggered for today");
       } catch (e) {
         debugPrint("[ScoreHistory] GC failed: $e");
       }

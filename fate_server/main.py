@@ -2,6 +2,8 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base, SessionLocal, get_db
 from database import LocationLog, DigitalLog, ProximityLog, NotificationLog, EngagementLog
+from database import ScoreSnapshot, CommunityEngagement
+import os
 from contextlib import asynccontextmanager
 import threading
 import time
@@ -11,6 +13,7 @@ import datetime
 Base.metadata.create_all(bind=engine)
 
 from api import auth, location, digital, proximity, notifications, engagement, friends, analysis, settings, device_mapping
+from api import community
 from core import scoring
 
 
@@ -32,6 +35,10 @@ def run_daily_gc():
             for LogModel in [LocationLog, DigitalLog, ProximityLog, NotificationLog, EngagementLog]:
                 deleted = db.query(LogModel).filter(LogModel.timestamp < cutoff).delete()
                 print(f"[GC] Deleted {deleted} rows from {LogModel.__tablename__}")
+            # Community layer keeps 30 days so weekly trends are possible.
+            community_cutoff = time.time() - 30 * 86400
+            db.query(ScoreSnapshot).filter(ScoreSnapshot.timestamp < community_cutoff).delete()
+            db.query(CommunityEngagement).filter(CommunityEngagement.ended_at < community_cutoff).delete()
             db.commit()
             print("[GC] Garbage collection complete.")
         except Exception as e:
@@ -65,23 +72,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register API Routers
-app.include_router(auth.router)
-app.include_router(location.router)
-app.include_router(digital.router)
-app.include_router(proximity.router)
-app.include_router(notifications.router)
-app.include_router(engagement.router)
-app.include_router(friends.router)
-app.include_router(analysis.router)
-app.include_router(settings.router)
-app.include_router(device_mapping.router)
+# v2 community API: what the local-first app talks to.
+app.include_router(community.router)
+
+# v1 raw-telemetry API. Unauthenticated and keyed by a guessable integer
+# user_id, so anyone can read or write any user's data. The v2 app doesn't
+# call it; it stays off unless explicitly enabled for the old app build.
+ENABLE_LEGACY_API = os.getenv("ENABLE_LEGACY_API", "false").lower() == "true"
+if ENABLE_LEGACY_API:
+    for r in (auth, location, digital, proximity, notifications, engagement,
+              friends, analysis, settings, device_mapping):
+        app.include_router(r.router)
 
 @app.get("/")
 def read_root():
     return {"status": "Active", "engine": "Deterministic CAS v2"}
 
-@app.get("/api/dashboard/{user_id}")
+
+@app.get("/healthz")
+def healthz():
+    """Render health check: also proves the DB is reachable."""
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    return {"ok": True}
+
+
 def get_dashboard(user_id: int):
     """
     Hit by Flutter to get the fully computed CAS and sub-scores.
@@ -100,7 +116,6 @@ def get_dashboard(user_id: int):
         db.close()
 
 
-@app.post("/api/gc/run")
 def manual_gc():
     """Manual trigger for garbage collection (for testing)."""
     db = SessionLocal()
@@ -117,3 +132,8 @@ def manual_gc():
         return {"status": "error", "message": str(e)}
     finally:
         db.close()
+
+
+if ENABLE_LEGACY_API:
+    app.add_api_route("/api/dashboard/{user_id}", get_dashboard, methods=["GET"])
+    app.add_api_route("/api/gc/run", manual_gc, methods=["POST"])

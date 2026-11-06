@@ -1,23 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'app.dart';
 import 'logic/telemetry_provider.dart';
 import 'logic/score_history_service.dart';
-import 'package:workmanager/workmanager.dart';
+import 'logic/scoring_engine.dart';
 
+/// Background dispatcher — runs fully offline, no network required.
+/// Computes local CAS from the encrypted SQLite DB and stores the snapshot.
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    // In background, we need our own instance of SharedPreferences
     final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('registered_user_id');
+    final localId = prefs.getString('local_identity_id');
 
-    if (userId != null) {
-      // Create a temporary instance to fetch and store
-      final service = ScoreHistoryService(prefs: prefs, userId: userId);
-      await service.fetchAndStore();
+    if (localId != null) {
+      try {
+        // Recalculate CAS from local DB — fully offline
+        final scores = await ScoringEngine.calculateDailyCas(DateTime.now());
+        final service = ScoreHistoryService(prefs: prefs);
+        service.storeBackgroundSnapshot(scores);
+        debugPrint('[BG] Offline analysis complete: CAS=${scores['CAS']}');
+      } catch (e) {
+        debugPrint('[BG] Analysis error: $e');
+      }
     }
 
     return Future.value(true);
@@ -27,17 +35,18 @@ void callbackDispatcher() {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize WorkManager — no network dependency
   Workmanager().initialize(callbackDispatcher);
 
-  // Register the background task to run periodically
+  // Background task runs completely offline — no network constraint
   Workmanager().registerPeriodicTask(
-    "fate_background_analysis",
-    "backgroundAnalysisTask",
-    frequency: const Duration(
-      minutes: 15,
-    ), // Minimum allowed by Android is 15 mins
+    'fate_background_analysis',
+    'backgroundAnalysisTask',
+    frequency: const Duration(minutes: 15),
     constraints: Constraints(
-      networkType: NetworkType.connected, // Only run if we have internet
+      networkType: NetworkType.notRequired, // ← offline-first
+      requiresBatteryNotLow: false,
+      requiresCharging: false,
     ),
   );
 
@@ -50,14 +59,14 @@ void main() async {
           create: (_) => TelemetryProvider(prefs)..initialize(),
         ),
         ChangeNotifierProxyProvider<TelemetryProvider, ScoreHistoryService>(
-          create: (_) {
-            final userId = prefs.getInt('registered_user_id');
-            final service = ScoreHistoryService(prefs: prefs, userId: userId);
-            if (userId != null) service.startPolling();
-            return service;
-          },
+          create: (_) => ScoreHistoryService(prefs: prefs)..startPolling(),
           update: (_, telemetry, service) {
-            service!.updateUserId(telemetry.userId);
+            service!.syncRealtimeScores(
+              telemetry.focusScore,
+              telemetry.sLoc,
+              telemetry.sSoc,
+              telemetry.sDig,
+            );
             return service;
           },
         ),

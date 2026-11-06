@@ -7,7 +7,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../logic/telemetry_provider.dart';
 import '../../logic/score_history_service.dart';
 import '../theme.dart';
-import 'social_synergy_screen.dart';
+import '../notification_log_screen.dart';
 import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
 
@@ -18,19 +18,12 @@ class AttentionDashboard extends StatefulWidget {
   State<AttentionDashboard> createState() => _AttentionDashboardState();
 }
 
-class _AttentionDashboardState extends State<AttentionDashboard>
-    with SingleTickerProviderStateMixin {
+class _AttentionDashboardState extends State<AttentionDashboard> {
   bool _showTotalDailyUsage = false;
-  late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<TelemetryProvider>().fetchTotalDailyUsage();
@@ -39,16 +32,10 @@ class _AttentionDashboardState extends State<AttentionDashboard>
   }
 
   @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final telemetry = context.watch<TelemetryProvider>();
     final scoreService = context.watch<ScoreHistoryService>();
-    final score = scoreService.currentCAS;
+    final score = telemetry.focusScore;
     final scoreColor = FateColors.scoreColor(score);
 
     return Scaffold(
@@ -57,42 +44,27 @@ class _AttentionDashboardState extends State<AttentionDashboard>
         physics: const BouncingScrollPhysics(),
         slivers: [
           // ─── Premium App Bar ───
-          SliverAppBar(
-            expandedHeight: 100,
-            floating: true,
-            pinned: false,
-            backgroundColor: Colors.transparent,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
-              title: Text(
-                'FATE',
-                style: GoogleFonts.outfit(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 3,
-                ),
-              ),
-            ),
+          FateSliverHeader(
+            title: 'Focus',
             actions: [
-              Container(
-                margin: const EdgeInsets.only(right: 16),
-                decoration: BoxDecoration(
-                  color: FateColors.bgCard.withAlpha(200),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withAlpha(10)),
-                ),
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.bolt_rounded,
-                    color: FateColors.primary,
+              IconButton(
+                icon: const Icon(Icons.notifications_none_rounded),
+                tooltip: 'Notification log',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationLogScreen(),
                   ),
-                  tooltip: 'Analyse Right Now',
-                  onPressed: () {
-                    context.read<ScoreHistoryService>().triggerManualAnalysis();
-                    context.read<TelemetryProvider>().resetAppUsageStats();
-                  },
                 ),
               ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'Recalculate now',
+                onPressed: () {
+                  context.read<ScoreHistoryService>().triggerManualAnalysis();
+                },
+              ),
+              const SizedBox(width: 8),
             ],
           ),
 
@@ -100,15 +72,11 @@ class _AttentionDashboardState extends State<AttentionDashboard>
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // ─── Timer Pill ───
-                _buildTimerPill(scoreService),
-                const SizedBox(height: 20),
-
                 // ─── Hero Score Card ───
                 _buildHeroScoreCard(score, scoreColor, scoreService),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
 
-                // ─── Metric Tiles (2x2 Grid) ───
+                // ─── Metric Tiles ───
                 _buildMetricTiles(telemetry, scoreService),
                 const SizedBox(height: 20),
 
@@ -117,10 +85,6 @@ class _AttentionDashboardState extends State<AttentionDashboard>
                   _buildTrendCard(scoreService),
                   const SizedBox(height: 20),
                 ],
-
-                // ─── Social Synergy Card ───
-                _buildSocialCard(telemetry),
-                const SizedBox(height: 24),
 
                 // ─── App Activity Section ───
                 _buildAppActivitySection(telemetry),
@@ -134,65 +98,6 @@ class _AttentionDashboardState extends State<AttentionDashboard>
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // TIMER PILL
-  // ═══════════════════════════════════════════════════════════════
-  Widget _buildTimerPill(ScoreHistoryService scoreService) {
-    final min = scoreService.secondsUntilNextAnalysis ~/ 60;
-    final sec = scoreService.secondsUntilNextAnalysis % 60;
-
-    return Center(
-      child: AnimatedBuilder(
-        animation: _pulseController,
-        builder: (context, child) {
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(
-              color: FateColors.bgCard.withAlpha(200),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color: FateColors.primary.withAlpha(
-                  (40 + 30 * _pulseController.value).toInt(),
-                ),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: FateColors.primary.withAlpha(10),
-                  blurRadius: 20,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.radar_rounded, color: FateColors.primary, size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  'Next scan in ',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: FateColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  '${min.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}',
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: FateColors.primary,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════
   // HERO SCORE CARD
   // ═══════════════════════════════════════════════════════════════
   Widget _buildHeroScoreCard(
@@ -200,147 +105,180 @@ class _AttentionDashboardState extends State<AttentionDashboard>
     Color scoreColor,
     ScoreHistoryService scoreService,
   ) {
-    String label;
-    String emoji;
-    if (score >= 70) {
-      label = 'Deep Focus';
-      emoji = '🔥';
-    } else if (score >= 40) {
-      label = 'Moderate';
-      emoji = '⚡';
-    } else {
-      label = 'Distracted';
-      emoji = '⚠️';
-    }
+    final telemetry = context.read<TelemetryProvider>();
+    final last = scoreService.todaySnapshots.isNotEmpty
+        ? DateTime.tryParse('${scoreService.todaySnapshots.last['ts']}')
+        : null;
 
     return GlassCard(
-      borderGradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [scoreColor.withAlpha(120), scoreColor.withAlpha(30)],
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Contextual Attention Score',
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: FateColors.textSecondary,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 24),
-          // Score Ring
-          SizedBox(
-            width: 160,
-            height: 160,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Background ring
-                SizedBox(
-                  width: 160,
-                  height: 160,
-                  child: CircularProgressIndicator(
-                    value: 1.0,
-                    strokeWidth: 10,
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation(
-                      Colors.white.withAlpha(8),
-                    ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: score),
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) => Text(
+                  value.toStringAsFixed(0),
+                  style: GoogleFonts.outfit(
+                    fontSize: 56,
+                    fontWeight: FontWeight.w700,
+                    color: FateColors.textPrimary,
+                    height: 1,
                   ),
                 ),
-                // Score ring
-                SizedBox(
-                  width: 160,
-                  height: 160,
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: (score / 100).clamp(0, 1)),
-                    duration: const Duration(milliseconds: 150),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) {
-                      return CircularProgressIndicator(
-                        value: value,
-                        strokeWidth: 10,
-                        strokeCap: StrokeCap.round,
-                        backgroundColor: Colors.transparent,
-                        valueColor: AlwaysStoppedAnimation(scoreColor),
-                      );
-                    },
-                  ),
-                ),
-                // Score number
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: score),
-                      duration: const Duration(milliseconds: 150),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, _) {
-                        return Text(
-                          value.toStringAsFixed(0),
-                          style: GoogleFonts.outfit(
-                            fontSize: 52,
-                            fontWeight: FontWeight.w800,
-                            color: scoreColor,
-                            height: 1,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          StatusDot(color: scoreColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            FateColors.scoreLabel(score),
+                            style: GoogleFonts.outfit(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: scoreColor,
+                            ),
                           ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$emoji $label',
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: scoreColor.withAlpha(200),
+                        ],
                       ),
-                    ),
-                  ],
+                      Text(
+                        'Attention score today',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: FateColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (score / 100).clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: FateColors.bgElevated,
+              valueColor: AlwaysStoppedAnimation(scoreColor),
             ),
           ),
-          // Delta text
+          const SizedBox(height: 18),
+          _componentRow(
+            'Place',
+            'Where you spend time',
+            telemetry.sLoc,
+            signed: true,
+          ),
+          _componentRow(
+            'People',
+            'Who is around you',
+            telemetry.sSoc,
+            signed: true,
+          ),
+          _componentRow('Phone', 'App use & notifications', telemetry.sDig),
           if (scoreService.todaySnapshots.length > 1) ...[
-            const SizedBox(height: 20),
-            _buildDeltaChip(scoreService.todaySnapshots),
+            const SizedBox(height: 8),
+            Text(
+              _getDeltaText(
+                scoreService.todaySnapshots,
+              ).replaceAll(RegExp(r'^[^A-Za-z0-9+-]+'), ''),
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: FateColors.textSecondary,
+              ),
+            ),
+          ],
+          if (last != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Updated ${_ago(last)}',
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                color: FateColors.textMuted,
+              ),
+            ),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildDeltaChip(List<Map<String, dynamic>> snapshots) {
-    final text = _getDeltaText(snapshots);
-    if (text.isEmpty) return const SizedBox.shrink();
-
-    final isUp = text.startsWith('📈');
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: (isUp ? const Color(0xFF00E676) : const Color(0xFFFF5252))
-            .withAlpha(15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: (isUp ? const Color(0xFF00E676) : const Color(0xFFFF5252))
-              .withAlpha(40),
-        ),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: GoogleFonts.outfit(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: isUp ? const Color(0xFF00E676) : const Color(0xFFFF5252),
-        ),
+  /// One sub-score line. Place/People are signed contributions (around 0);
+  /// Phone is already 0-100.
+  Widget _componentRow(
+    String title,
+    String hint,
+    double v, {
+    bool signed = false,
+  }) {
+    final text = signed
+        ? '${v >= 0 ? '+' : ''}${v.toStringAsFixed(1)}'
+        : v.toStringAsFixed(0);
+    final color = signed
+        ? (v > 0.05
+              ? FateColors.scoreColor(80)
+              : v < -0.05
+              ? FateColors.scoreColor(10)
+              : FateColors.textSecondary)
+        : FateColors.scoreColor(v);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: FateColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  hint,
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    color: FateColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            text,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  String _ago(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inSeconds < 60) return 'just now';
+    if (d.inMinutes < 60) return '${d.inMinutes} min ago';
+    return '${d.inHours} h ago';
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -350,64 +288,37 @@ class _AttentionDashboardState extends State<AttentionDashboard>
     TelemetryProvider telemetry,
     ScoreHistoryService scoreService,
   ) {
-    final location = telemetry.currentContext;
     final fragPercent = (telemetry.fragmentationScore * 100).toStringAsFixed(0);
-
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _MetricTile(
-                icon: Icons.broken_image_rounded,
-                label: 'Fragmentation',
-                value: '$fragPercent%',
-                gradient: FateColors.warmGradient,
-                subtitle: telemetry.fragmentationScore > 0.5
-                    ? 'High switching'
-                    : 'Focused usage',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricTile(
-                icon: Icons.location_on_rounded,
-                label: 'Location',
-                value: location,
-                gradient: FateColors.coolGradient,
-                subtitle: location == 'Off Campus'
-                    ? 'Not on campus'
-                    : 'On campus zone',
-              ),
-            ),
-          ],
+        Expanded(
+          child: _MetricTile(
+            icon: Icons.place_outlined,
+            label: 'Zone',
+            value: telemetry.currentContext,
+            gradient: FateColors.coolGradient,
+            subtitle: '',
+          ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _MetricTile(
-                icon: Icons.people_alt_rounded,
-                label: 'Peers',
-                value: '${telemetry.nearbyPeers}',
-                gradient: FateColors.purpleGradient,
-                subtitle: telemetry.nearbyPeers > 0
-                    ? 'Focus peers nearby'
-                    : 'No peers detected',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricTile(
-                icon: Icons.speed_rounded,
-                label: 'Sub-Scores',
-                value:
-                    '${scoreService.currentSLoc.toStringAsFixed(0)}/${scoreService.currentSSoc.toStringAsFixed(0)}/${scoreService.currentSDig.toStringAsFixed(0)}',
-                gradient: FateColors.heroGradient,
-                subtitle: 'Loc / Soc / Dig',
-              ),
-            ),
-          ],
+        const SizedBox(width: 8),
+        Expanded(
+          child: _MetricTile(
+            icon: Icons.people_outline_rounded,
+            label: 'Nearby',
+            value: '${telemetry.nearbyPeers}',
+            gradient: FateColors.purpleGradient,
+            subtitle: '',
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _MetricTile(
+            icon: Icons.swap_horiz_rounded,
+            label: 'Switching',
+            value: '$fragPercent%',
+            gradient: FateColors.warmGradient,
+            subtitle: '',
+          ),
         ),
       ],
     );
@@ -456,74 +367,6 @@ class _AttentionDashboardState extends State<AttentionDashboard>
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SOCIAL SYNERGY CARD
-  // ═══════════════════════════════════════════════════════════════
-  Widget _buildSocialCard(TelemetryProvider telemetry) {
-    return GlassCard(
-      borderGradient: const LinearGradient(
-        colors: [Color(0xFFB721FF), Color(0xFF21D4FD)],
-      ),
-      padding: EdgeInsets.zero,
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const SocialSynergyScreen()),
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: FateColors.purpleGradient,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                Icons.people_alt_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Social Synergy',
-                    style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: FateColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${telemetry.nearbyPeers} high-focus peers nearby',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: FateColors.textSecondary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: FateColors.textMuted,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════
   // APP ACTIVITY SECTION
   // ═══════════════════════════════════════════════════════════════
   Widget _buildAppActivitySection(TelemetryProvider telemetry) {
@@ -539,21 +382,7 @@ class _AttentionDashboardState extends State<AttentionDashboard>
         // Header
         Row(
           children: [
-            const GradientIcon(
-              icon: Icons.apps_rounded,
-              size: 20,
-              gradient: FateColors.warmGradient,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'App Activity',
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: FateColors.textPrimary,
-              ),
-            ),
-            const Spacer(),
+            const Expanded(child: SectionHeader(title: 'App activity')),
             _buildTogglePill(),
           ],
         ),
@@ -849,53 +678,37 @@ class _MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: Colors.white, size: 20),
+          Row(
+            children: [
+              Icon(icon, size: 14, color: FateColors.textMuted),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    color: FateColors.textMuted,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 6),
           Text(
             value,
             style: GoogleFonts.outfit(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
               color: FateColors.textPrimary,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: GoogleFonts.outfit(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: FateColors.textMuted,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: GoogleFonts.outfit(
-                fontSize: 10,
-                color: FateColors.textMuted.withAlpha(170),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
         ],
       ),
     );
@@ -977,11 +790,11 @@ class _PremiumAppActivityTileState extends State<PremiumAppActivityTile> {
     // Color based on usage severity
     Color barColor;
     if (widget.durationSecs > 600) {
-      barColor = const Color(0xFFFF5252); // Heavy usage
+      barColor = const Color(0xFFF87171); // Heavy usage
     } else if (widget.durationSecs > 180) {
       barColor = const Color(0xFFFFAB40); // Moderate
     } else {
-      barColor = const Color(0xFF00E676); // Light
+      barColor = const Color(0xFF4ADE80); // Light
     }
 
     return Padding(
