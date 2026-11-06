@@ -11,3 +11,10 @@ fate_app/pubspec.lock
 # local venvs
 fate_server/venv/
 .venv/
+
+# local secrets (Neon / Render env)
+.env
+.env.*
+!.env.example
+.neon
+node_modules/

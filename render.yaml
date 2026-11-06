@@ -1,12 +1,12 @@
-# Render Blueprint: provisions Postgres + the API and wires DATABASE_URL
-# between them, so no credentials ever live in this file.
+# Render Blueprint: the API runs on Render (free web service), and Postgres
+# lives on Neon (free tier, no 30-day expiry). Neon project config is in
+# neon.ts.
+#
+# DATABASE_URL is a secret: set it in Render → fate-server → Environment
+# with the Neon *pooled* connection string (host contains "-pooler",
+# ends with ?sslmode=require). Never commit it to this file.
+#
 # Deploy: Render dashboard → New → Blueprint → pick this repo/branch.
-databases:
-  - name: fate-db
-    plan: free            # free Postgres expires after 30 days; switch to basic-256mb to keep it
-    databaseName: fate
-    user: fate
-
 services:
   - type: web
     name: fate-server
@@ -20,8 +20,6 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: DATABASE_URL
-        fromDatabase:
-          name: fate-db
-          property: connectionString
+        sync: false   # Render prompts for it on first Blueprint apply
       - key: ENABLE_LEGACY_API
         value: "false"
